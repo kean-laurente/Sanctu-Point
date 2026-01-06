@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react'
 import './PublicPortal.css'
+import CalendarView from './CalendarView'
+
+
 
 // Direct Supabase client for public portal (read-only)
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
@@ -13,6 +16,7 @@ const PublicPortal = () => {
   const [filter, setFilter] = useState('all')
   const [selectedService, setSelectedService] = useState('all')
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+const [view, setView] = useState('calendar')
 
   useEffect(() => {
     loadServices()
@@ -282,10 +286,7 @@ const PublicPortal = () => {
                   <span className="stat-number">{stats.past}</span>
                   <span className="stat-label">Past Events</span>
                 </div>
-                <div className="stat-item">
-                  <span className="stat-number">{formatCurrency(stats.totalRevenue)}</span>
-                  <span className="stat-label">Total Donated</span>
-                </div>
+               
               </div>
             )}
           </div>
@@ -311,6 +312,8 @@ const PublicPortal = () => {
           )}
         </div>
       </header>
+
+{view === 'calendar' && <CalendarView events={events} />}
 
       {/* Main Content */}
       <main className="portal-main">
@@ -504,13 +507,13 @@ const PublicPortal = () => {
                               <span className="customer-icon">🙏</span>
                               <span className="customer-text">Booked by: {event.customer_name}</span>
                             </div>
-                            <div className="event-payment">
+                            {/* <div className="event-payment">
                               <span className="payment-icon">💰</span>
                               <span className="payment-text">
                                 {formatCurrency(event.total_payments)}
                                 {event.payment_count > 1 && ` (${event.payment_count} payments)`}
                               </span>
-                            </div>
+                            </div> */}
                           </div>
 
                           <div className="event-footer">
@@ -532,6 +535,7 @@ const PublicPortal = () => {
               )}
             </>
           )}
+
 
           {/* Info Section */}
           <div className="info-section">

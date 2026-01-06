@@ -1,0 +1,637 @@
+.calendar-wrapper {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  margin-bottom: 2rem;
+}
+
+/* ---------------- HEADER ---------------- */
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.calendar-header h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.calendar-header button {
+  background: #f3f4f6;
+  border: none;
+  padding: 0.4rem 0.75rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background 0.2s;
+}
+
+.calendar-header button:hover {
+  background: #e5e7eb;
+}
+
+/* ---------------- GRID ---------------- */
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.5rem;
+}
+
+.calendar-day-name {
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+  padding-bottom: 0.25rem;
+}
+
+.calendar-empty {
+  height: 48px;
+}
+
+/* ---------------- DAYS ---------------- */
+.calendar-day {
+  height: 52px;
+  border-radius: 10px;
+  background: #f9fafb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+  font-weight: 500;
+  color: #374151;
+  transition: all 0.2s ease;
+}
+
+.calendar-day:hover {
+  background: #e5e7eb;
+}
+
+.calendar-day.has-event {
+  background: #ecfeff;
+  border: 1px solid #67e8f9;
+}
+
+.calendar-day.has-event:hover {
+  background: #cffafe;
+}
+
+.calendar-day span {
+  z-index: 1;
+}
+
+/* Dot indicator */
+.event-dot {
+  position: absolute;
+  bottom: 6px;
+  width: 6px;
+  height: 6px;
+  background: #06b6d4;
+  border-radius: 50%;
+}
+
+/* ---------------- EVENTS LIST ---------------- */
+.calendar-events {
+  margin-top: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 1rem;
+}
+
+.calendar-events h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: #1f2937;
+}
+
+.calendar-event-card {
+  background: #f9fafb;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+  border-left: 4px solid #06b6d4;
+}
+
+.calendar-event-card strong {
+  display: block;
+  font-size: 0.9rem;
+  color: #111827;
+}
+
+.calendar-event-card p {
+  margin: 0.15rem 0;
+  font-size: 0.8rem;
+  color: #4b5563;
+}
+
+/* ---------------- MOBILE ---------------- */
+@media (max-width: 768px) {
+  .calendar-wrapper {
+    padding: 1rem;
+  }
+
+  .calendar-header h2 {
+    font-size: 1.1rem;
+  }
+
+  .calendar-day {
+    height: 44px;
+    font-size: 0.85rem;
+  }
+
+  .calendar-event-card {
+    padding: 0.65rem 0.75rem;
+  }
+  
+}
+
+/* ---------------- LAYOUT ---------------- */
+.calendar-layout {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  gap: 1.5rem;
+}
+
+/* ---------------- SIDE PANEL ---------------- */
+.calendar-side-panel {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+}
+
+.calendar-side-panel h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #1f2937;
+}
+
+.side-placeholder {
+  text-align: center;
+  color: #6b7280;
+  padding: 2rem 1rem;
+}
+
+/* ---------------- TIME SLOTS ---------------- */
+.timeslot-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.timeslot-card {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem;
+  border-radius: 10px;
+  background: #f9fafb;
+  border-left: 4px solid #10b981;
+}
+
+.timeslot-card.booked {
+  border-left-color: #ef4444;
+}
+
+.timeslot-time {
+  font-weight: 600;
+  min-width: 80px;
+  color: #111827;
+}
+
+.timeslot-info strong {
+  display: block;
+  font-size: 0.9rem;
+}
+
+.timeslot-info span {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+/* ---------------- SELECTED DAY ---------------- */
+.calendar-day.selected {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.calendar-day.selected .event-dot {
+  background: #ffffff;
+}
+
+/* ---------------- MOBILE ---------------- */
+@media (max-width: 768px) {
+  .calendar-layout {
+    grid-template-columns: 1fr;
+  }
+}
+/* -------- AVAILABLE / TAKEN STATES -------- */
+.timeslot-card.available {
+  border-left-color: #10b981;
+  background: #ecfdf5;
+}
+
+.timeslot-card.taken {
+  border-left-color: #ef4444;
+  background: #fef2f2;
+}
+
+.timeslot-info.available span {
+  color: #065f46;
+  font-weight: 500;
+}
+
+/* -------- LEGEND (OPTIONAL) -------- */
+.timeslot-legend {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.8rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.legend-dot.available {
+  background: #10b981;
+}
+
+.legend-dot.taken {
+  background: #ef4444;
+}
+
+/* CalendarView.css */
+.calendar-layout {
+  display: flex;
+  gap: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.calendar-wrapper {
+  flex: 1;
+  max-width: 700px;
+}
+
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.calendar-header button {
+  background: none;
+  border: 1px solid #ddd;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.calendar-header h2 {
+  margin: 0;
+  color: #333;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.5rem;
+}
+
+.calendar-day-name {
+  text-align: center;
+  font-weight: bold;
+  padding: 0.5rem;
+  color: #666;
+}
+
+.calendar-day, .calendar-empty {
+  aspect-ratio: 1;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+  background: white;
+}
+
+.calendar-day:hover {
+  background: #f0f0f0;
+}
+
+.calendar-day.selected {
+  background: #e3f2fd;
+  border-color: #2196f3;
+}
+
+.calendar-day.has-event span {
+  color: #2196f3;
+  font-weight: bold;
+}
+
+.event-dot {
+  position: absolute;
+  bottom: 4px;
+  width: 6px;
+  height: 6px;
+  background: #2196f3;
+  border-radius: 50%;
+}
+
+.calendar-side-panel {
+  flex: 0 0 350px;
+  padding: 1rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: white;
+}
+
+.side-placeholder {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+.timeslot-list {
+  margin-top: 1.5rem;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.timeslot-card {
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.timeslot-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.timeslot-time {
+  flex: 0 0 100px;
+  font-weight: bold;
+  color: #555;
+}
+
+.timeslot-info {
+  flex: 1;
+  margin-left: 1rem;
+}
+
+.timeslot-info strong {
+  display: block;
+  color: #333;
+}
+
+.timeslot-info span {
+  color: #666;
+  font-size: 0.9em;
+}
+
+/* Status colors */
+.timeslot-card.available {
+  background: #e8f5e9;
+  border-color: #c8e6c9;
+}
+
+.timeslot-card.available .timeslot-time {
+  color: #2e7d32;
+}
+
+.timeslot-card.taken {
+  background: #ffebee;
+  border-color: #ffcdd2;
+  cursor: not-allowed;
+  opacity: 0.9;
+}
+
+.timeslot-card.taken .timeslot-time,
+.timeslot-card.taken .timeslot-info strong {
+  color: #c62828;
+}
+
+.timeslot-card.blocked {
+  background: #fff3e0;
+  border-color: #ffe0b2;
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+.timeslot-card.blocked .timeslot-time,
+.timeslot-card.blocked .timeslot-info strong {
+  color: #ef6c00;
+}
+
+/* Add to CalendarView.css */
+
+.slot-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #eee;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+}
+
+.legend-color.available {
+  background: #e8f5e9;
+  border: 1px solid #c8e6c9;
+}
+
+.legend-color.taken {
+  background: #ffebee;
+  border: 1px solid #ffcdd2;
+}
+
+.legend-color.blocked {
+  background: #fff3e0;
+  border: 1px solid #ffe0b2;
+}
+
+.legend-item span {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+/* Add to CalendarView.css */
+
+/* Calendar day styling for past dates */
+.calendar-day.past-date {
+  background-color: #f5f5f5;
+  color: #999;
+  cursor: not-allowed;
+  border-color: #e0e0e0;
+}
+
+.calendar-day.past-date:hover {
+  background-color: #f5f5f5;
+}
+
+.calendar-day.past-date span {
+  color: #999;
+}
+
+.calendar-day.past-date .event-dot {
+  background-color: #999;
+  opacity: 0.5;
+}
+
+.calendar-day.past-date.has-event {
+  border-color: #ddd;
+}
+
+/* Past time slot styling */
+.timeslot-card.past {
+  background: #f5f5f5;
+  border-color: #e0e0e0;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.timeslot-card.past .timeslot-time {
+  color: #999;
+}
+
+.timeslot-card.past .timeslot-info.past strong {
+  color: #757575;
+}
+
+.timeslot-card.past .timeslot-info.past span {
+  color: #999;
+}
+
+.legend-color.past {
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+}
+
+/* Additional note styling */
+.past-note {
+  font-size: 0.9rem;
+  color: #666;
+  margin-top: 0.5rem;
+  font-style: italic;
+}
+
+/* Add to CalendarView.css */
+
+/* Calendar day styling for past dates (view only) */
+.calendar-day.past-date {
+  background-color: #f5f5f5;
+  color: #666;
+  border-color: #e0e0e0;
+  cursor: pointer;
+}
+
+.calendar-day.past-date:hover {
+  background-color: #f0f0f0;
+}
+
+.calendar-day.past-date span {
+  color: #666;
+}
+
+.calendar-day.past-date .event-dot {
+  background-color: #999;
+  opacity: 0.7;
+}
+
+.calendar-day.past-date.has-event {
+  border-color: #ddd;
+}
+
+/* Time slot styling */
+.timeslot-card.past {
+  background: #f9f9f9;
+  border-color: #eee;
+  cursor: default;
+}
+
+.timeslot-card.past .timeslot-time {
+  color: #888;
+}
+
+.timeslot-card.past .timeslot-info.past strong {
+  color: #666;
+}
+
+.timeslot-card.past .timeslot-info.past span {
+  color: #888;
+}
+
+/* For non-bookable slots */
+.timeslot-card.not-bookable {
+  cursor: default;
+}
+
+.timeslot-card.not-bookable:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* Available slots that are not bookable (for past dates) */
+.timeslot-card.available.not-bookable {
+  background: #f9f9f9;
+  border-color: #eee;
+}
+
+.timeslot-card.available.not-bookable .timeslot-time {
+  color: #888;
+}
+
+.timeslot-card.available.not-bookable .timeslot-info.available strong {
+  color: #666;
+}
+
+.timeslot-card.available.not-bookable .timeslot-info.available span {
+  color: #888;
+}
+
+.legend-color.past {
+  background: #f9f9f9;
+  border: 1px solid #eee;
+}
+
+/* Additional note styling */
+.past-note {
+  font-size: 0.9rem;
+  color: #666;
+  margin-top: 0.5rem;
+  font-style: italic;
+}

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { appointmentService } from '../../services/appointmentService'
 import { authService } from '../../auth/authService'
+import { printReceipt } from '../../utils/receiptUtils'
 
 const AppointmentSchedulePage = () => {
   const [appointments, setAppointments] = useState([])
@@ -9,13 +10,8 @@ const AppointmentSchedulePage = () => {
   const [success, setSuccess] = useState('')
   const [currentUser, setCurrentUser] = useState(null)
   const [selectedAppointment, setSelectedAppointment] = useState(null)
-  const [showPaymentModal, setShowPaymentModal] = useState(false)
-  const [paymentData, setPaymentData] = useState({
-    amount: '',
-    payment_method: 'cash',
-    payment_type: 'full'
-  })
-  const [processingPayment, setProcessingPayment] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [filterStatus, setFilterStatus] = useState('all')
 
   useEffect(() => {
     loadCurrentUser()
@@ -39,7 +35,7 @@ const AppointmentSchedulePage = () => {
     try {
       let result
       
-      // UPDATED: Both admin and staff can see all appointments
+      // Both admin and staff can see all appointments
       if (currentUser?.role === 'admin' || currentUser?.role === 'staff') {
         result = await appointmentService.getAppointments(currentUser)
       } else {
@@ -100,47 +96,23 @@ const AppointmentSchedulePage = () => {
     }
   }
 
-  const handlePaymentSubmit = async (e) => {
-    e.preventDefault()
-    setProcessingPayment(true)
-    setError('')
-    setSuccess('')
-
+  const handleReprintReceipt = async (appointment) => {
     try {
-      // Validate amount
-      const amount = parseFloat(paymentData.amount)
-      if (isNaN(amount) || amount <= 0) {
-        setError('Please enter a valid payment amount greater than 0')
-        setProcessingPayment(false)
+      if (!appointment.receipt_number) {
+        setError('No receipt found for this appointment')
         return
       }
-
-      const result = await appointmentService.addPayment(
-        selectedAppointment.appointment_id,
-        {
-          ...paymentData,
-          amount: amount.toString()
-        },
-        currentUser
-      )
-
+      
+      const result = await appointmentService.reprintReceipt(appointment.appointment_id, currentUser)
+      
       if (result.success) {
-        setShowPaymentModal(false)
-        setPaymentData({ amount: '', payment_method: 'cash', payment_type: 'full' })
-        setSelectedAppointment(null)
-        setSuccess('Payment processed successfully!')
-        // Refresh appointments after a short delay
-        setTimeout(() => {
-          loadAppointments()
-        }, 1000)
+        printReceipt(result.data)
+        setSuccess('Receipt reprinted successfully!')
       } else {
-        setError(result.error || 'Failed to process payment')
+        setError(result.error || 'Failed to reprint receipt')
       }
     } catch (err) {
-      console.error('Payment processing error:', err)
-      setError('An error occurred while processing payment')
-    } finally {
-      setProcessingPayment(false)
+      setError('An error occurred while reprinting receipt')
     }
   }
 
@@ -187,21 +159,38 @@ const AppointmentSchedulePage = () => {
   }
 
   const getPaymentStatus = (appointment) => {
-    if (!appointment.payments || appointment.payments.length === 0) {
-      return { text: 'Unpaid', color: '#dc3545' }
-    }
-    
-    const totalPaid = appointment.payments.reduce((sum, payment) => sum + parseFloat(payment.amount), 0)
-    const servicePrice = appointment.services?.service_price || 0
-    
-    if (totalPaid >= servicePrice) {
+    if (appointment.payment_status === 'paid') {
       return { text: 'Paid', color: '#28a745' }
-    } else if (totalPaid > 0) {
-      return { text: `Partial (₱${totalPaid})`, color: '#ffc107' }
-    } else {
-      return { text: 'Unpaid', color: '#dc3545' }
     }
+    return { text: 'Unpaid', color: '#dc3545' }
   }
+
+  // Filter appointments based on search and status
+  const filteredAppointments = appointments.filter(appointment => {
+    const matchesStatus = filterStatus === 'all' || appointment.status === filterStatus
+    const matchesSearch = searchTerm === '' || 
+      appointment.customer_first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      appointment.customer_last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      appointment.service_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      appointment.receipt_number?.toLowerCase().includes(searchTerm.toLowerCase())
+    
+    return matchesStatus && matchesSearch
+  })
+
+  // Get status counts for filters
+  const getStatusCounts = () => {
+    const counts = {
+      all: appointments.length,
+      pending: appointments.filter(a => a.status === 'pending').length,
+      confirmed: appointments.filter(a => a.status === 'confirmed').length,
+      completed: appointments.filter(a => a.status === 'completed').length,
+      cancelled: appointments.filter(a => a.status === 'cancelled').length
+    }
+    
+    return counts
+  }
+
+  const statusCounts = getStatusCounts()
 
   return (
     <div className="page-container">
@@ -223,21 +212,75 @@ const AppointmentSchedulePage = () => {
           </div>
         )}
 
+        {/* Search and Filter Section */}
+        <div className="filters-section">
+          <div className="search-box">
+            <input
+              type="text"
+              placeholder="Search by name, service, or receipt number..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="search-input"
+            />
+          </div>
+          
+          <div className="status-filters">
+            <button 
+              className={`filter-btn ${filterStatus === 'all' ? 'active' : ''}`}
+              onClick={() => setFilterStatus('all')}
+            >
+              All ({statusCounts.all})
+            </button>
+            <button 
+              className={`filter-btn ${filterStatus === 'pending' ? 'active' : ''}`}
+              onClick={() => setFilterStatus('pending')}
+            >
+              Pending ({statusCounts.pending})
+            </button>
+            <button 
+              className={`filter-btn ${filterStatus === 'confirmed' ? 'active' : ''}`}
+              onClick={() => setFilterStatus('confirmed')}
+            >
+              Confirmed ({statusCounts.confirmed})
+            </button>
+            <button 
+              className={`filter-btn ${filterStatus === 'completed' ? 'active' : ''}`}
+              onClick={() => setFilterStatus('completed')}
+            >
+              Completed ({statusCounts.completed})
+            </button>
+            <button 
+              className={`filter-btn ${filterStatus === 'cancelled' ? 'active' : ''}`}
+              onClick={() => setFilterStatus('cancelled')}
+            >
+              Cancelled ({statusCounts.cancelled})
+            </button>
+          </div>
+        </div>
+
         {loading ? (
           <div className="loading-state">
             <div className="loading-spinner"></div>
             <p>Loading appointments...</p>
           </div>
-        ) : appointments.length === 0 ? (
+        ) : filteredAppointments.length === 0 ? (
           <div className="empty-state">
             <h3>No Appointments Scheduled</h3>
             <p>There are no appointments to display at the moment.</p>
+            {(currentUser?.role === 'admin' || currentUser?.role === 'staff') && (
+              <button 
+                onClick={() => window.location.href = '#book-appointment'}
+                className="btn-primary"
+              >
+                Book New Appointment
+              </button>
+            )}
           </div>
         ) : (
           <div className="appointments-list">
-            {appointments.map(appointment => {
+            {filteredAppointments.map(appointment => {
               const paymentStatus = getPaymentStatus(appointment)
-              const servicePrice = appointment.services?.service_price || 0
+              const servicePrice = appointment.service_price || appointment.payment_amount || 0
               
               return (
                 <div key={appointment.appointment_id} className="appointment-card">
@@ -276,10 +319,33 @@ const AppointmentSchedulePage = () => {
                       )}
                     </div>
 
+                    {/* Payment Information */}
+                    {appointment.payment_status === 'paid' && (
+                      <div className="payment-info">
+                        <p><strong>Payment Details:</strong></p>
+                        <div className="payment-details-grid">
+                          <div className="payment-item">
+                            <span className="payment-label">Amount Paid:</span>
+                            <span className="payment-value">₱{appointment.amount_paid?.toFixed(2) || '0.00'}</span>
+                          </div>
+                          <div className="payment-item">
+                            <span className="payment-label">Change Given:</span>
+                            <span className="payment-value">₱{appointment.change_amount?.toFixed(2) || '0.00'}</span>
+                          </div>
+                          {appointment.receipt_number && (
+                            <div className="payment-item">
+                              <span className="payment-label">Receipt No:</span>
+                              <span className="payment-value receipt-number">{appointment.receipt_number}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Additional admin/staff information */}
                     {(currentUser?.role === 'admin' || currentUser?.role === 'staff') && appointment.users && (
                       <div className="admin-info">
-                        <p><strong>Booked by account:</strong> {appointment.users.first_name} {appointment.users.last_name} ({appointment.users.email})</p>
+                        <p><strong>Booked by:</strong> {appointment.users.first_name} {appointment.users.last_name} ({appointment.users.email})</p>
                       </div>
                     )}
                   </div>
@@ -296,21 +362,7 @@ const AppointmentSchedulePage = () => {
                     </div>
                   )}
 
-                  {/* Payment History */}
-                  {appointment.payments && appointment.payments.length > 0 && (
-                    <div className="payment-history">
-                      <strong>Payment History:</strong>
-                      <ul>
-                        {appointment.payments.map((payment, index) => (
-                          <li key={index}>
-                            ₱{payment.amount} - {payment.payment_method} ({payment.payment_type}) - {new Date(payment.payment_date).toLocaleDateString()}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Action Buttons - UPDATED: Allow both admin and staff */}
+                  {/* Action Buttons - UPDATED: Removed payment button */}
                   <div className="appointment-actions">
                     {(currentUser?.role === 'admin' || currentUser?.role === 'staff') && appointment.status === 'pending' && (
                       <>
@@ -338,111 +390,30 @@ const AppointmentSchedulePage = () => {
                       </button>
                     )}
 
-                    {/* Allow both admin and staff to add payments and archive */}
+                    {/* Reprint receipt button for paid appointments */}
+                    {(currentUser?.role === 'admin' || currentUser?.role === 'staff') && appointment.payment_status === 'paid' && appointment.receipt_number && (
+                      <button 
+                        onClick={() => handleReprintReceipt(appointment)}
+                        className="btn-receipt"
+                        title="Reprint Receipt"
+                      >
+                        🖨️ Reprint Receipt
+                      </button>
+                    )}
+
+                    {/* Archive button for admin/staff */}
                     {(currentUser?.role === 'admin' || currentUser?.role === 'staff') && (
-                      <>
-                        <button 
-                          onClick={() => {
-                            setSelectedAppointment(appointment)
-                            setShowPaymentModal(true)
-                          }}
-                          className="btn-payment"
-                        >
-                          Add Payment
-                        </button>
-                        <button 
-                          onClick={() => archiveAppointment(appointment.appointment_id)}
-                          className="btn-archive"
-                        >
-                          Archive
-                        </button>
-                      </>
+                      <button 
+                        onClick={() => archiveAppointment(appointment.appointment_id)}
+                        className="btn-archive"
+                      >
+                        Archive
+                      </button>
                     )}
                   </div>
                 </div>
               )
             })}
-          </div>
-        )}
-
-        {/* Payment Modal */}
-        {showPaymentModal && selectedAppointment && (
-          <div className="modal-overlay">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h3>Add Payment - {selectedAppointment.service_type}</h3>
-                <button 
-                  onClick={() => {
-                    setShowPaymentModal(false)
-                    setSelectedAppointment(null)
-                  }}
-                  className="btn-close"
-                >
-                  ×
-                </button>
-              </div>
-              
-              <div className="payment-customer-info">
-                <p><strong>Customer:</strong> {selectedAppointment.customer_first_name} {selectedAppointment.customer_last_name}</p>
-                <p><strong>Service:</strong> {selectedAppointment.service_type}</p>
-                {selectedAppointment.services?.service_price > 0 && (
-                  <p><strong>Service Fee:</strong> ₱{selectedAppointment.services.service_price.toFixed(2)}</p>
-                )}
-              </div>
-
-              <form onSubmit={handlePaymentSubmit}>
-                <div className="form-group">
-                  <label>Amount (₱):</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={paymentData.amount}
-                    onChange={(e) => setPaymentData({...paymentData, amount: e.target.value})}
-                    required
-                    placeholder="Enter amount"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Payment Method:</label>
-                  <select
-                    value={paymentData.payment_method}
-                    onChange={(e) => setPaymentData({...paymentData, payment_method: e.target.value})}
-                  >
-                    <option value="cash">Cash</option>
-                    <option value="gcash">GCash</option>
-                    <option value="card">Credit/Debit Card</option>
-                    <option value="bank_transfer">Bank Transfer</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Payment Type:</label>
-                  <select
-                    value={paymentData.payment_type}
-                    onChange={(e) => setPaymentData({...paymentData, payment_type: e.target.value})}
-                  >
-                    <option value="full">Full Payment</option>
-                    <option value="partial">Partial Payment</option>
-                    <option value="deposit">Deposit</option>
-                  </select>
-                </div>
-                <div className="modal-actions">
-                  <button 
-                    type="button" 
-                    onClick={() => {
-                      setShowPaymentModal(false)
-                      setSelectedAppointment(null)
-                    }}
-                    className="btn-secondary"
-                  >
-                    Cancel
-                  </button>
-                  <button type="submit" className="btn-primary" disabled={processingPayment}>
-                    {processingPayment ? 'Processing...' : 'Process Payment'}
-                  </button>
-                </div>
-              </form>
-            </div>
           </div>
         )}
       </div>
@@ -494,6 +465,62 @@ const AppointmentSchedulePage = () => {
           color: #363;
         }
 
+        /* Search and Filter Styles */
+        .filters-section {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          margin-bottom: 24px;
+        }
+
+        .search-box {
+          width: 100%;
+        }
+
+        .search-input {
+          width: 100%;
+          padding: 12px 16px;
+          border: 1px solid #ddd;
+          border-radius: 8px;
+          font-size: 14px;
+          border: 2px solid #e2e8f0;
+        }
+
+        .search-input:focus {
+          outline: none;
+          border-color: #4299e1;
+          box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+        }
+
+        .status-filters {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .filter-btn {
+          padding: 8px 16px;
+          border: 2px solid #e2e8f0;
+          border-radius: 20px;
+          background: white;
+          color: #666;
+          cursor: pointer;
+          font-size: 14px;
+          transition: all 0.2s;
+          font-weight: 500;
+        }
+
+        .filter-btn:hover {
+          border-color: #4299e1;
+          color: #4299e1;
+        }
+
+        .filter-btn.active {
+          background: #4299e1;
+          border-color: #4299e1;
+          color: white;
+        }
+
         .loading-state {
           text-align: center;
           padding: 40px;
@@ -525,267 +552,258 @@ const AppointmentSchedulePage = () => {
           color: #333;
         }
 
+        .empty-state .btn-primary {
+          margin-top: 16px;
+          padding: 12px 24px;
+          background: #4299e1;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+          transition: background-color 0.2s;
+        }
+
+        .empty-state .btn-primary:hover {
+          background: #3182ce;
+        }
+
         .appointments-list {
           display: grid;
           gap: 16px;
         }
 
         .appointment-card {
-          border: 1px solid #e0e0e0;
-          border-radius: 8px;
-          padding: 20px;
+          border: 2px solid #e2e8f0;
+          border-radius: 12px;
+          padding: 24px;
           background: white;
+          transition: all 0.3s ease;
+        }
+
+        .appointment-card:hover {
+          border-color: #cbd5e0;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+          transform: translateY(-1px);
         }
 
         .appointment-header {
           display: flex;
           justify-content: space-between;
-          align-items: center;
-          margin-bottom: 16px;
+          align-items: flex-start;
+          margin-bottom: 20px;
+          padding-bottom: 16px;
+          border-bottom: 2px solid #edf2f7;
         }
 
         .appointment-header h3 {
           margin: 0;
-          color: #333;
+          color: #2d3748;
+          font-size: 1.3rem;
+          font-weight: 600;
         }
 
         .status-badges {
           display: flex;
           gap: 8px;
+          flex-wrap: wrap;
         }
 
         .appointment-status,
         .payment-status {
-          padding: 4px 12px;
+          padding: 6px 12px;
           border-radius: 20px;
           color: white;
           font-size: 12px;
           font-weight: bold;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
         }
 
         .appointment-details {
-          margin-bottom: 16px;
+          margin-bottom: 20px;
         }
 
         .appointment-details p {
-          margin: 4px 0;
-          color: #555;
+          margin: 8px 0;
+          color: #4a5568;
+          line-height: 1.5;
         }
 
         .customer-info {
-          margin-top: 12px;
-          padding: 12px;
-          background: #f8f9fa;
-          border-radius: 4px;
+          margin-top: 16px;
+          padding: 16px;
+          background: #f8fafc;
+          border-radius: 8px;
+          border-left: 3px solid #4299e1;
         }
 
-        .admin-info {
-          margin-top: 8px;
-          padding: 8px 12px;
-          background: #e9ecef;
-          border-radius: 4px;
+        .payment-info {
+          margin-top: 16px;
+          padding: 16px;
+          background: #f0fff4;
+          border-radius: 8px;
+          border-left: 3px solid #48bb78;
+        }
+
+        .payment-info p {
+          margin: 0 0 12px 0;
+          font-weight: 600;
+          color: #2d3748;
+        }
+
+        .payment-details-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 12px;
+        }
+
+        .payment-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 8px;
+          background: white;
+          border-radius: 6px;
+          border: 1px solid #e2e8f0;
+        }
+
+        .payment-label {
+          color: #718096;
+          font-size: 13px;
+          font-weight: 500;
+        }
+
+        .payment-value {
+          color: #2d3748;
+          font-weight: 600;
           font-size: 14px;
         }
 
-        .appointment-requirements,
-        .payment-history {
-          margin: 12px 0;
-          padding: 12px;
-          background: #f8f9fa;
+        .receipt-number {
+          font-family: 'Courier New', monospace;
+          background: #edf2f7;
+          padding: 2px 6px;
           border-radius: 4px;
+          font-size: 12px;
         }
 
-        .appointment-requirements ul,
-        .payment-history ul {
+        .admin-info {
+          margin-top: 12px;
+          padding: 12px;
+          background: #e6fffa;
+          border-radius: 6px;
+          border-left: 3px solid #38b2ac;
+          font-size: 13px;
+        }
+
+        .appointment-requirements {
+          margin: 16px 0;
+          padding: 16px;
+          background: #fffaf0;
+          border-radius: 8px;
+          border-left: 3px solid #ed8936;
+        }
+
+        .appointment-requirements ul {
           margin: 8px 0 0 0;
           padding-left: 20px;
         }
 
-        .appointment-requirements li,
-        .payment-history li {
+        .appointment-requirements li {
           margin: 4px 0;
-          color: #555;
+          color: #744210;
         }
 
         .appointment-actions {
           display: flex;
           gap: 8px;
           flex-wrap: wrap;
-          margin-top: 16px;
+          margin-top: 20px;
+          padding-top: 20px;
+          border-top: 2px solid #edf2f7;
         }
 
         .appointment-actions button {
-          padding: 8px 16px;
+          padding: 10px 20px;
           border: none;
-          border-radius: 4px;
+          border-radius: 8px;
           cursor: pointer;
           font-size: 14px;
-          transition: background-color 0.2s;
+          font-weight: 500;
+          transition: all 0.2s;
+          display: flex;
+          align-items: center;
+          gap: 6px;
         }
 
         .btn-confirm {
-          background: #28a745;
+          background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
           color: white;
         }
 
         .btn-confirm:hover {
-          background: #218838;
+          background: linear-gradient(135deg, #3ac569 0%, #2f855a 100%);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(72, 187, 120, 0.3);
         }
 
         .btn-cancel {
-          background: #dc3545;
+          background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
           color: white;
         }
 
         .btn-cancel:hover {
-          background: #c82333;
+          background: linear-gradient(135deg, #f44141 0%, #d22d2d 100%);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(245, 101, 101, 0.3);
         }
 
         .btn-complete {
-          background: #6c757d;
+          background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
           color: white;
         }
 
         .btn-complete:hover {
-          background: #5a6268;
+          background: linear-gradient(135deg, #3182ce 0%, #2b6cb0 100%);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(66, 153, 225, 0.3);
         }
 
-        .btn-payment {
-          background: #17a2b8;
+        .btn-receipt {
+          background: linear-gradient(135deg, #805ad5 0%, #6b46c1 100%);
           color: white;
         }
 
-        .btn-payment:hover {
-          background: #138496;
+        .btn-receipt:hover {
+          background: linear-gradient(135deg, #6b46c1 0%, #553c9a 100%);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(128, 90, 213, 0.3);
         }
 
         .btn-archive {
-          background: #6f42c1;
+          background: linear-gradient(135deg, #718096 0%, #4a5568 100%);
           color: white;
         }
 
         .btn-archive:hover {
-          background: #5a3790;
-        }
-
-        /* Modal Styles */
-        .modal-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0,0,0,0.5);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-        }
-
-        .modal-content {
-          background: white;
-          border-radius: 8px;
-          padding: 24px;
-          width: 90%;
-          max-width: 500px;
-          max-height: 90vh;
-          overflow-y: auto;
-        }
-
-        .modal-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 20px;
-        }
-
-        .modal-header h3 {
-          margin: 0;
-          color: #333;
-        }
-
-        .btn-close {
-          background: none;
-          border: none;
-          font-size: 24px;
-          cursor: pointer;
-          color: #666;
-        }
-
-        .payment-customer-info {
-          background: #f8f9fa;
-          padding: 16px;
-          border-radius: 4px;
-          margin-bottom: 20px;
-        }
-
-        .payment-customer-info p {
-          margin: 4px 0;
-          color: #555;
-        }
-
-        .form-group {
-          margin-bottom: 16px;
-        }
-
-        .form-group label {
-          display: block;
-          margin-bottom: 8px;
-          font-weight: 500;
-          color: #333;
-        }
-
-        .form-group input,
-        .form-group select {
-          width: 100%;
-          padding: 8px 12px;
-          border: 1px solid #ddd;
-          border-radius: 4px;
-          font-size: 14px;
-        }
-
-        .modal-actions {
-          display: flex;
-          gap: 12px;
-          justify-content: flex-end;
-          margin-top: 24px;
-        }
-
-        .btn-primary {
-          padding: 10px 20px;
-          background: #007bff;
-          color: white;
-          border: none;
-          border-radius: 4px;
-          cursor: pointer;
-        }
-
-        .btn-primary:hover {
-          background: #0056b3;
-        }
-
-        .btn-primary:disabled {
-          background: #6c757d;
-          cursor: not-allowed;
-        }
-
-        .btn-secondary {
-          padding: 10px 20px;
-          background: #6c757d;
-          color: white;
-          border: none;
-          border-radius: 4px;
-          cursor: pointer;
-        }
-
-        .btn-secondary:hover {
-          background: #5a6268;
+          background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(113, 128, 150, 0.3);
         }
 
         @media (max-width: 768px) {
+          .page-container {
+            padding: 15px;
+          }
+
+          .page-content {
+            padding: 20px;
+          }
+
           .appointment-header {
             flex-direction: column;
-            align-items: flex-start;
             gap: 12px;
           }
 
@@ -801,13 +819,44 @@ const AppointmentSchedulePage = () => {
             width: 100%;
           }
 
-          .modal-actions {
+          .payment-details-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .filters-section {
             flex-direction: column;
           }
 
-          .btn-primary,
-          .btn-secondary {
-            width: 100%;
+          .status-filters {
+            justify-content: center;
+          }
+
+          .filter-btn {
+            flex: 1;
+            text-align: center;
+            min-width: 80px;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .appointment-card {
+            padding: 16px;
+          }
+
+          .appointment-header h3 {
+            font-size: 1.1rem;
+          }
+
+          .appointment-status,
+          .payment-status {
+            font-size: 10px;
+            padding: 4px 8px;
+          }
+
+          .payment-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
           }
         }
       `}</style>

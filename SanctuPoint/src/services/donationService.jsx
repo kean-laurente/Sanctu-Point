@@ -2,7 +2,89 @@ import { supabase } from '../config/supabaseClient'
 
 const handleSupabaseError = (error, operation) => {
   console.error(`❌ ${operation} error:`, error)
-  return { success: false, error: error.message || `Failed to ${operation}` }
+  return { 
+    success: false, 
+    error: error.message || `Failed to ${operation}` 
+  }
+}
+
+// Validation constants
+const VALIDATION_RULES = {
+  DONOR_NAME: {
+    MIN_LENGTH: 2,
+    MAX_LENGTH: 100,
+    // Allow: letters, spaces, periods, apostrophes, hyphens
+    // Disallow: special characters and numbers
+    PATTERN: /^[a-zA-Z\s.'-]+$/,
+    SPECIAL_CHAR_REGEX: /[!@#$%^&*()_+=\[\]{};:"\\|,<>\/?~`0-9]/,
+    IS_REQUIRED: false // Set to false to make it optional
+  },
+  AMOUNT: {
+    MIN: 0.01,
+    MAX: 50000, // Set to 50,000 PHP maximum
+    MAX_DECIMALS: 2,
+    IS_REQUIRED: true
+  },
+  DESCRIPTION: {
+    MAX_LENGTH: 500,
+    IS_REQUIRED: false
+  }
+}
+
+// Validation functions
+const validateDonationInput = (donationData) => {
+  const errors = []
+  
+  // Validate donor name - OPTIONAL (can be blank)
+  if (donationData.donor_name && donationData.donor_name.trim() !== '') {
+    const trimmedName = donationData.donor_name.trim()
+    
+    if (trimmedName.length < VALIDATION_RULES.DONOR_NAME.MIN_LENGTH) {
+      errors.push(`Donor name must be at least ${VALIDATION_RULES.DONOR_NAME.MIN_LENGTH} characters long if provided`)
+    }
+    
+    if (trimmedName.length > VALIDATION_RULES.DONOR_NAME.MAX_LENGTH) {
+      errors.push(`Donor name cannot exceed ${VALIDATION_RULES.DONOR_NAME.MAX_LENGTH} characters`)
+    }
+    
+    // Check for any special characters or numbers
+    if (VALIDATION_RULES.DONOR_NAME.SPECIAL_CHAR_REGEX.test(trimmedName)) {
+      errors.push('Donor name cannot contain special characters or numbers')
+    }
+    
+    // Validate pattern (letters, spaces, periods, apostrophes, hyphens only)
+    if (!VALIDATION_RULES.DONOR_NAME.PATTERN.test(trimmedName)) {
+      errors.push('Name can only contain letters, spaces, periods, apostrophes, and hyphens')
+    }
+  }
+  
+  // Validate amount - REQUIRED and MAX 50,000 PHP
+  if (!donationData.amount && donationData.amount !== 0) {
+    errors.push('Amount is required')
+  } else {
+    const amount = parseFloat(donationData.amount)
+    
+    if (isNaN(amount)) {
+      errors.push('Amount must be a valid number')
+    } else if (amount < VALIDATION_RULES.AMOUNT.MIN) {
+      errors.push(`Amount must be at least ₱${VALIDATION_RULES.AMOUNT.MIN}`)
+    } else if (amount > VALIDATION_RULES.AMOUNT.MAX) {
+      errors.push(`Amount cannot exceed ₱${VALIDATION_RULES.AMOUNT.MAX.toLocaleString('en-PH')}`)
+    }
+    
+    // Validate decimal places
+    const decimalPlaces = (amount.toString().split('.')[1] || '').length
+    if (decimalPlaces > VALIDATION_RULES.AMOUNT.MAX_DECIMALS) {
+      errors.push(`Amount can only have up to ${VALIDATION_RULES.AMOUNT.MAX_DECIMALS} decimal places`)
+    }
+  }
+  
+  // Validate description length if provided
+  if (donationData.description && donationData.description.length > VALIDATION_RULES.DESCRIPTION.MAX_LENGTH) {
+    errors.push(`Description cannot exceed ${VALIDATION_RULES.DESCRIPTION.MAX_LENGTH} characters`)
+  }
+  
+  return errors
 }
 
 export const donationService = {
@@ -30,15 +112,50 @@ export const donationService = {
     try {
       console.log('🔄 Creating donation:', donationData)
       
+      // Validate input before proceeding
+      const validationErrors = validateDonationInput(donationData)
+      
+      if (validationErrors.length > 0) {
+        return {
+          success: false,
+          error: 'Validation failed',
+          validationErrors: validationErrors
+        }
+      }
+      
+      // Clean and format data
+      const cleanDonationData = {
+        donor_name: donationData.donor_name ? donationData.donor_name.trim() : null, // Can be null
+        amount: parseFloat(donationData.amount),
+        description: donationData.description ? donationData.description.trim() : null,
+        donation_date: donationData.donation_date || new Date().toISOString()
+      }
+      
+      // Ensure amount is positive and within limit
+      if (cleanDonationData.amount < 0) {
+        console.log('⚠️ Converting negative amount to positive')
+        cleanDonationData.amount = Math.abs(cleanDonationData.amount)
+      }
+      
+      // Ensure amount doesn't exceed 50,000
+      if (cleanDonationData.amount > VALIDATION_RULES.AMOUNT.MAX) {
+        return {
+          success: false,
+          error: `Amount cannot exceed ₱${VALIDATION_RULES.AMOUNT.MAX.toLocaleString('en-PH')}`,
+          validationErrors: [`Amount cannot exceed ₱${VALIDATION_RULES.AMOUNT.MAX.toLocaleString('en-PH')}`]
+        }
+      }
+      
+      // Round to 2 decimal places
+      cleanDonationData.amount = Math.round(cleanDonationData.amount * 100) / 100
+      
+      console.log('📦 Clean donation data:', cleanDonationData)
+      
       const { data, error } = await supabase
         .from('donations')
-        .insert([{
-          donor_name: donationData.donor_name,
-          amount: parseFloat(donationData.amount),
-          description: donationData.description || null,
-          donation_date: new Date().toISOString()
-        }])
+        .insert([cleanDonationData])
         .select()
+        .single()
 
       if (error) {
         return handleSupabaseError(error, 'create donation')
@@ -47,7 +164,7 @@ export const donationService = {
       console.log('✅ Donation created successfully')
       return { 
         success: true, 
-        data: data && data.length > 0 ? data[0] : null, 
+        data: data, 
         message: 'Donation recorded successfully! Thank you for your generosity!' 
       }
     } catch (error) {
@@ -60,7 +177,7 @@ export const donationService = {
       // Get all donations
       const { data: donations, error } = await supabase
         .from('donations')
-        .select('amount, donation_date')
+        .select('amount, donation_date, donor_name')
 
       if (error) {
         return handleSupabaseError(error, 'fetch donation stats')
@@ -72,19 +189,130 @@ export const donationService = {
       const totalAmount = donations?.reduce((sum, donation) => sum + parseFloat(donation.amount || 0), 0) || 0
       const recentDonations = donations?.filter(d => new Date(d.donation_date) >= thirtyDaysAgo) || []
       const recentAmount = recentDonations.reduce((sum, donation) => sum + parseFloat(donation.amount || 0), 0)
+      
+      // Count anonymous donations
+      const anonymousDonations = donations?.filter(d => !d.donor_name || d.donor_name.trim() === '') || []
 
       const stats = {
         totalAmount,
         totalCount: donations?.length || 0,
         recentAmount,
         recentCount: recentDonations.length,
-        averageAmount: donations?.length > 0 ? totalAmount / donations.length : 0
+        averageAmount: donations?.length > 0 ? totalAmount / donations.length : 0,
+        anonymousCount: anonymousDonations.length
       }
 
       return { success: true, data: stats }
     } catch (error) {
       return handleSupabaseError(error, 'fetch donation stats')
     }
+  },
+  
+  // Validation function for donor name (OPTIONAL)
+  validateDonorName(name) {
+    // If name is empty or just whitespace, it's valid (optional)
+    if (!name || name.trim().length === 0) {
+      return { isValid: true, message: '' }
+    }
+    
+    const trimmedName = name.trim()
+    
+    if (trimmedName.length < VALIDATION_RULES.DONOR_NAME.MIN_LENGTH) {
+      return { 
+        isValid: false, 
+        message: `Name must be at least ${VALIDATION_RULES.DONOR_NAME.MIN_LENGTH} characters if provided` 
+      }
+    }
+    
+    if (trimmedName.length > VALIDATION_RULES.DONOR_NAME.MAX_LENGTH) {
+      return { 
+        isValid: false, 
+        message: `Name cannot exceed ${VALIDATION_RULES.DONOR_NAME.MAX_LENGTH} characters` 
+      }
+    }
+    
+    // Check for special characters or numbers
+    if (VALIDATION_RULES.DONOR_NAME.SPECIAL_CHAR_REGEX.test(trimmedName)) {
+      return { 
+        isValid: false, 
+        message: 'Special characters (!@#$%^&*()_+=[]{} etc.) and numbers are not allowed' 
+      }
+    }
+    
+    // Validate pattern
+    if (!VALIDATION_RULES.DONOR_NAME.PATTERN.test(trimmedName)) {
+      return { 
+        isValid: false, 
+        message: 'Name can only contain letters, spaces, periods, apostrophes, and hyphens' 
+      }
+    }
+    
+    return { isValid: true, message: '' }
+  },
+  
+  // Validation function for amount (MAX 50,000 PHP)
+  validateAmount(amount) {
+    if (amount === '' || amount === null || amount === undefined) {
+      return { isValid: false, message: 'Amount is required' }
+    }
+    
+    const numAmount = parseFloat(amount)
+    
+    if (isNaN(numAmount)) {
+      return { isValid: false, message: 'Please enter a valid number' }
+    }
+    
+    if (numAmount < 0) {
+      return { isValid: false, message: 'Negative amounts are not allowed' }
+    }
+    
+    if (numAmount < VALIDATION_RULES.AMOUNT.MIN) {
+      return { 
+        isValid: false, 
+        message: `Amount must be at least ₱${VALIDATION_RULES.AMOUNT.MIN}` 
+      }
+    }
+    
+    if (numAmount > VALIDATION_RULES.AMOUNT.MAX) {
+      return { 
+        isValid: false, 
+        message: `Amount cannot exceed ₱${VALIDATION_RULES.AMOUNT.MAX.toLocaleString('en-PH')}` 
+      }
+    }
+    
+    return { isValid: true, message: '' }
+  },
+  
+  // Helper function to clean donor name (removes ALL special characters and numbers)
+  cleanDonorName(name) {
+    if (!name || name.trim().length === 0) return ''
+    
+    // Remove ALL special characters and numbers
+    // Keep only: letters, spaces, periods, apostrophes, hyphens
+    const cleaned = name.replace(/[!@#$%^&*()_+=\[\]{};:"\\|,<>\/?~`0-9]/g, '')
+    
+    // Trim and limit length
+    return cleaned.trim().substring(0, VALIDATION_RULES.DONOR_NAME.MAX_LENGTH)
+  },
+  
+  // Helper function to clean amount (ensures positive number, max 50,000)
+  cleanAmount(amount) {
+    if (amount === '' || amount === null || amount === undefined) return ''
+    
+    const numAmount = parseFloat(amount)
+    
+    if (isNaN(numAmount)) return ''
+    
+    // Convert to positive if negative
+    let positiveAmount = Math.abs(numAmount)
+    
+    // Enforce maximum of 50,000
+    if (positiveAmount > VALIDATION_RULES.AMOUNT.MAX) {
+      positiveAmount = VALIDATION_RULES.AMOUNT.MAX
+    }
+    
+    // Round to 2 decimal places
+    return Math.round(positiveAmount * 100) / 100
   }
 }
 

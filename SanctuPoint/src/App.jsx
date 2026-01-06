@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { authService } from './auth/authService';
 import Login from './components/Login';
+import AutoLogout from './components/autologout.jsx';
 import AdminDashboard from './components/dashboard/AdminDashboard';
 import StaffDashboard from './components/dashboard/StaffDashboard';
 import './App.css';
@@ -48,6 +49,10 @@ function App() {
     console.log('Rendering dashboard for:', user.role);
     return (
       <div className="app">
+
+        {/* AUTO LOGOUT COMPONENT */}
+        <AutoLogout user={user} onLogout={handleLogout} />
+
         {user.role === 'admin' && (
           <AdminDashboard 
             user={user} 
@@ -55,6 +60,7 @@ function App() {
             onStaffUpdate={handleStaffUpdate} 
           />
         )}
+
         {user.role === 'staff' && (
           <StaffDashboard 
             user={user} 

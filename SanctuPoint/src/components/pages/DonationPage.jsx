@@ -12,13 +12,19 @@ const DonationPage = () => {
     totalCount: 0,
     recentAmount: 0,
     recentCount: 0,
-    averageAmount: 0
+    averageAmount: 0,
+    anonymousCount: 0
   })
   
   const [formData, setFormData] = useState({
     donor_name: '',
     amount: '',
     description: ''
+  })
+
+  const [validationErrors, setValidationErrors] = useState({
+    donor_name: '',
+    amount: ''
   })
 
   useEffect(() => {
@@ -58,9 +64,45 @@ const DonationPage = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
+    let newValue = value
+    
+    // Real-time cleaning for donor name - OPTIONAL
+    if (name === 'donor_name') {
+      // Apply cleaning first (removes special characters and numbers)
+      newValue = donationService.cleanDonorName(value)
+      
+      // Real-time validation (name is optional)
+      const validation = donationService.validateDonorName(newValue)
+      setValidationErrors(prev => ({
+        ...prev,
+        donor_name: validation.isValid ? '' : validation.message
+      }))
+    }
+    // Real-time cleaning for amount - MAX 50,000
+    else if (name === 'amount') {
+      // Allow only numbers and one decimal point
+      newValue = value.replace(/[^0-9.]/g, '')
+      const parts = newValue.split('.')
+      newValue = parts.length > 2 
+        ? parts[0] + '.' + parts.slice(1).join('')
+        : newValue
+      
+      // If value exceeds 50000, cap it at 50000
+      if (newValue && parseFloat(newValue) > 50000) {
+        newValue = '50000'
+      }
+      
+      // Real-time validation
+      const validation = donationService.validateAmount(newValue)
+      setValidationErrors(prev => ({
+        ...prev,
+        amount: validation.isValid ? '' : validation.message
+      }))
+    }
+    
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: newValue
     }))
   }
 
@@ -69,25 +111,41 @@ const DonationPage = () => {
     setLoading(true)
     setError('')
     setSuccess('')
+    setValidationErrors({ donor_name: '', amount: '' })
 
-    // Validate form
-    if (!formData.donor_name.trim()) {
-      setError('Please enter donor name')
+    // Use service validation functions
+    const nameValidation = donationService.validateDonorName(formData.donor_name)
+    const amountValidation = donationService.validateAmount(formData.amount)
+
+    // Only validate amount (donor name is optional)
+    if (!amountValidation.isValid) {
+      setValidationErrors({
+        donor_name: nameValidation.isValid ? '' : nameValidation.message,
+        amount: amountValidation.isValid ? '' : amountValidation.message
+      })
       setLoading(false)
       return
     }
 
-    if (!formData.amount || parseFloat(formData.amount) <= 0) {
-      setError('Please enter a valid amount greater than 0')
+    // Clean the data before submission
+    const cleanedData = {
+      donor_name: donationService.cleanDonorName(formData.donor_name) || null, // Can be null/empty
+      amount: donationService.cleanAmount(formData.amount),
+      description: formData.description ? formData.description.trim() : ''
+    }
+
+    // Final validation check for amount
+    if (parseFloat(cleanedData.amount) > 50000) {
+      setError('Amount cannot exceed ₱50,000')
       setLoading(false)
       return
     }
 
     try {
-      const result = await donationService.createDonation(formData)
+      const result = await donationService.createDonation(cleanedData)
       
       if (result.success) {
-        setSuccess(result.message)
+        setSuccess(result.message || 'Donation recorded successfully!')
         setFormData({
           donor_name: '',
           amount: '',
@@ -98,6 +156,10 @@ const DonationPage = () => {
         await loadStats()
       } else {
         setError(result.error || 'Failed to record donation')
+        if (result.validationErrors) {
+          // Show validation errors from service
+          setError(result.validationErrors.join('. '))
+        }
       }
     } catch (err) {
       setError('An error occurred while recording donation')
@@ -125,6 +187,12 @@ const DonationPage = () => {
     }).format(amount)
   }
 
+  const isFormValid = () => {
+    // Only amount is required, donor name is optional
+    const amountValid = donationService.validateAmount(formData.amount).isValid
+    return amountValid
+  }
+
   return (
     <div className="page-container">
       <div className="page-content">
@@ -135,33 +203,39 @@ const DonationPage = () => {
 
         {error && (
           <div className="message error">
-            {error}
+            <span className="error-icon">❌</span>
+            <span>{error}</span>
           </div>
         )}
 
         {success && (
           <div className="message success">
-            {success}
+            <span className="success-icon">✅</span>
+            <span>{success}</span>
           </div>
         )}
 
         {/* Statistics Cards */}
         <div className="stats-cards">
           <div className="stat-card">
+            <div className="stat-icon">💰</div>
             <div className="stat-number">{formatCurrency(stats.totalAmount)}</div>
             <div className="stat-label">Total Donations</div>
           </div>
           <div className="stat-card">
+            <div className="stat-icon">📈</div>
             <div className="stat-number">{formatCurrency(stats.recentAmount)}</div>
             <div className="stat-label">Last 30 Days</div>
           </div>
           <div className="stat-card">
+            <div className="stat-icon">📊</div>
             <div className="stat-number">{stats.totalCount}</div>
             <div className="stat-label">Total Donations</div>
           </div>
           <div className="stat-card">
-            <div className="stat-number">{formatCurrency(stats.averageAmount)}</div>
-            <div className="stat-label">Average Donation</div>
+            <div className="stat-icon">👤</div>
+            <div className="stat-number">{stats.anonymousCount || 0}</div>
+            <div className="stat-label">Anonymous Donations</div>
           </div>
         </div>
 
@@ -171,7 +245,7 @@ const DonationPage = () => {
             className="add-donation-button"
             disabled={loading}
           >
-            {showForm ? 'Cancel' : 'Record New Donation'}
+            {showForm ? 'Cancel' : '➕ Record New Donation'}
           </button>
         </div>
 
@@ -180,35 +254,63 @@ const DonationPage = () => {
             <h2>Record New Donation</h2>
             <form onSubmit={handleSubmit} className="donation-form">
               <div className="form-group">
-                <label htmlFor="donor_name">Donor Name *</label>
+                <label htmlFor="donor_name">
+                  Donor Name
+                  <span className="optional-indicator"> (optional)</span>
+                </label>
                 <input
                   type="text"
                   id="donor_name"
                   name="donor_name"
                   value={formData.donor_name}
                   onChange={handleInputChange}
-                  required
-                  placeholder="Enter donor's name"
+                  placeholder="Enter donor's name (leave blank for anonymous)"
                   disabled={loading}
-                  className="form-input"
+                  className={`form-input ${validationErrors.donor_name ? 'input-error' : ''}`}
+                  autoComplete="name"
                 />
+                {validationErrors.donor_name && (
+                  <div className="field-error">
+                    <span className="error-icon">❌</span>
+                    {validationErrors.donor_name}
+                  </div>
+                )}
+                <div className="field-hint">
+                  Leave blank for anonymous donation. If provided: minimum 2 characters. 
+                  Letters, spaces, periods, apostrophes, and hyphens only. 
+                  Special characters and numbers are not allowed.
+                </div>
               </div>
 
               <div className="form-group">
-                <label htmlFor="amount">Amount (₱) *</label>
-                <input
-                  type="number"
-                  id="amount"
-                  name="amount"
-                  value={formData.amount}
-                  onChange={handleInputChange}
-                  step="0.01"
-                  min="0.01"
-                  required
-                  placeholder="Enter donation amount"
-                  disabled={loading}
-                  className="form-input"
-                />
+                <label htmlFor="amount">
+                  Amount (₱)
+                  <span className="required-indicator"> * required</span>
+                </label>
+                <div className="input-with-prefix">
+                  <span className="input-prefix">₱</span>
+                  <input
+                    type="text"
+                    id="amount"
+                    name="amount"
+                    value={formData.amount}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="0.00"
+                    disabled={loading}
+                    className={`form-input ${validationErrors.amount ? 'input-error' : ''}`}
+                    inputMode="decimal"
+                  />
+                </div>
+                {validationErrors.amount && (
+                  <div className="field-error">
+                    <span className="error-icon">❌</span>
+                    {validationErrors.amount}
+                  </div>
+                )}
+                <div className="field-hint">
+                  Minimum ₱0.01, maximum ₱50,000
+                </div>
               </div>
 
               <div className="form-group">
@@ -223,15 +325,25 @@ const DonationPage = () => {
                   disabled={loading}
                   className="form-textarea"
                 />
+                <div className="field-hint">
+                  Maximum 500 characters
+                </div>
               </div>
 
               <div className="form-actions">
                 <button 
                   type="submit" 
-                  disabled={loading}
+                  disabled={loading || !isFormValid()}
                   className="submit-button"
                 >
-                  {loading ? 'Recording...' : 'Record Donation'}
+                  {loading ? (
+                    <>
+                      <span className="spinner"></span>
+                      Recording...
+                    </>
+                  ) : (
+                    '📝 Record Donation'
+                  )}
                 </button>
               </div>
             </form>
@@ -249,7 +361,7 @@ const DonationPage = () => {
               className="refresh-button"
               disabled={loading}
             >
-              {loading ? 'Refreshing...' : 'Refresh'}
+              {loading ? '🔄 Refreshing...' : '🔄 Refresh'}
             </button>
           </div>
 
@@ -260,6 +372,7 @@ const DonationPage = () => {
             </div>
           ) : donations.length === 0 ? (
             <div className="empty-state">
+              <div className="empty-state-icon">📭</div>
               <h3>No Donations Recorded</h3>
               <p>No donations have been recorded yet. Start by recording your first donation.</p>
             </div>
@@ -278,7 +391,12 @@ const DonationPage = () => {
                   {donations.map(donation => (
                     <tr key={donation.donation_id} className="donation-row">
                       <td className="donor-name-cell">
-                        <strong>{donation.donor_name}</strong>
+                        <span className="donor-icon">👤</span>
+                        <strong>
+                          {donation.donor_name || (
+                            <span className="anonymous-donor">Anonymous</span>
+                          )}
+                        </strong>
                       </td>
                       <td className="amount-cell">
                         <span className="amount-value">
@@ -286,10 +404,13 @@ const DonationPage = () => {
                         </span>
                       </td>
                       <td className="date-cell">
+                        <span className="date-icon">📅</span>
                         {formatDate(donation.donation_date)}
                       </td>
                       <td className="description-cell">
-                        {donation.description || 'No description provided'}
+                        {donation.description || (
+                          <span className="no-description">No description</span>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -335,6 +456,9 @@ const DonationPage = () => {
         }
 
         .message {
+          display: flex;
+          align-items: center;
+          gap: 12px;
           padding: 16px 20px;
           border-radius: 10px;
           margin-bottom: 24px;
@@ -353,6 +477,10 @@ const DonationPage = () => {
           background: #f0fff4;
           border-color: #48bb78;
           color: #276749;
+        }
+
+        .error-icon, .success-icon {
+          font-size: 18px;
         }
 
         .stats-cards {
@@ -377,8 +505,14 @@ const DonationPage = () => {
           box-shadow: 0 15px 35px rgba(102, 126, 234, 0.25);
         }
 
+        .stat-icon {
+          font-size: 32px;
+          margin-bottom: 12px;
+          display: block;
+        }
+
         .stat-number {
-          font-size: 2rem;
+          font-size: 1.8rem;
           font-weight: 800;
           margin-bottom: 10px;
           text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -387,8 +521,6 @@ const DonationPage = () => {
         .stat-label {
           font-size: 15px;
           opacity: 0.95;
-          text-transform: uppercase;
-          letter-spacing: 1px;
           font-weight: 600;
         }
 
@@ -408,6 +540,9 @@ const DonationPage = () => {
           font-weight: 600;
           transition: all 0.3s ease;
           box-shadow: 0 6px 20px rgba(72, 187, 120, 0.2);
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
         }
 
         .add-donation-button:hover:not(:disabled) {
@@ -458,6 +593,22 @@ const DonationPage = () => {
           font-weight: 600;
           color: #4a5568;
           font-size: 15px;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+
+        .required-indicator {
+          color: #f56565;
+          font-size: 13px;
+          font-weight: normal;
+        }
+
+        .optional-indicator {
+          color: #718096;
+          font-size: 13px;
+          font-weight: normal;
+          font-style: italic;
         }
 
         .form-input,
@@ -470,6 +621,29 @@ const DonationPage = () => {
           background: white;
           transition: all 0.2s;
           width: 100%;
+          box-sizing: border-box;
+        }
+
+        .input-with-prefix {
+          position: relative;
+        }
+
+        .input-prefix {
+          position: absolute;
+          left: 16px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: #4a5568;
+          font-weight: 600;
+        }
+
+        .input-with-prefix .form-input {
+          padding-left: 40px;
+        }
+
+        .form-input.input-error {
+          border-color: #f56565;
+          background: #fff5f5;
         }
 
         .form-input:focus,
@@ -493,6 +667,27 @@ const DonationPage = () => {
           line-height: 1.5;
         }
 
+        .field-error {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          color: #c53030;
+          font-size: 14px;
+          margin-top: 8px;
+          font-weight: 500;
+        }
+
+        .error-icon {
+          font-size: 16px;
+        }
+
+        .field-hint {
+          color: #718096;
+          font-size: 13px;
+          margin-top: 6px;
+          line-height: 1.4;
+        }
+
         .form-actions {
           display: flex;
           justify-content: center;
@@ -510,6 +705,10 @@ const DonationPage = () => {
           font-weight: 600;
           transition: all 0.3s ease;
           min-width: 220px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
         }
 
         .submit-button:hover:not(:disabled) {
@@ -523,6 +722,16 @@ const DonationPage = () => {
           cursor: not-allowed;
           transform: none;
           box-shadow: none;
+        }
+
+        .spinner {
+          display: inline-block;
+          width: 16px;
+          height: 16px;
+          border: 2px solid rgba(255, 255, 255, 0.3);
+          border-radius: 50%;
+          border-top-color: white;
+          animation: spin 1s ease-in-out infinite;
         }
 
         .donations-section {
@@ -555,6 +764,9 @@ const DonationPage = () => {
           font-size: 15px;
           font-weight: 500;
           transition: all 0.2s;
+          display: flex;
+          align-items: center;
+          gap: 8px;
         }
 
         .refresh-button:hover:not(:disabled) {
@@ -597,6 +809,12 @@ const DonationPage = () => {
           background: #f8fafc;
           border-radius: 16px;
           border: 2px dashed #e2e8f0;
+        }
+
+        .empty-state-icon {
+          font-size: 48px;
+          margin-bottom: 20px;
+          display: block;
         }
 
         .empty-state h3 {
@@ -674,6 +892,18 @@ const DonationPage = () => {
           font-weight: 600;
           color: #2d3748;
           min-width: 200px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .donor-icon {
+          font-size: 18px;
+        }
+
+        .anonymous-donor {
+          color: #718096;
+          font-style: italic;
         }
 
         .amount-cell {
@@ -695,12 +925,24 @@ const DonationPage = () => {
           color: #718096;
           min-width: 200px;
           font-size: 14.5px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .date-icon {
+          font-size: 16px;
         }
 
         .description-cell {
           max-width: 300px;
           color: #4a5568;
           line-height: 1.6;
+        }
+
+        .no-description {
+          color: #a0aec0;
+          font-style: italic;
         }
 
         /* Responsive Styles */
@@ -761,6 +1003,7 @@ const DonationPage = () => {
           .refresh-button {
             align-self: stretch;
             width: 100%;
+            justify-content: center;
           }
           
           .donations-table th,
@@ -849,6 +1092,7 @@ const DonationPage = () => {
             padding: 4px 10px;
           }
         }
+          
       `}</style>
     </div>
   )

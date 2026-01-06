@@ -7,14 +7,15 @@ const NavigationHeader = ({ currentPage, onPageChange }) => {
 
   // Admin menu items
   const adminMenuItems = [
-    { key: 'home', label: 'Home', description: 'Dashboard' },
-    { key: 'services', label: 'Services', description: 'Our Services' },
-    { key: 'book-appointment', label: 'Book Appointment', description: 'Schedule New Appointment' },
-    { key: 'appointment-schedule', label: 'Appointment Schedule', description: 'View Schedule' },
-    { key: 'appointment-history', label: 'Appointment History', description: 'Past Appointments' },
-    { key: 'staff-management', label: 'Staff Management', description: 'Manage Staff' },
-    { key: 'donation', label: 'Donation', description: 'Support Us' }
-  ];
+  { key: 'home', label: 'Home', description: 'Dashboard' },
+  { key: 'services', label: 'Services', description: 'Our Services' },
+  { key: 'book-appointment', label: 'Book Appointment', description: 'Schedule New Appointment' },
+  { key: 'appointment-schedule', label: 'Appointment Schedule', description: 'View Schedule' },
+  { key: 'appointment-history', label: 'Appointment History', description: 'Past Appointments' },
+  { key: 'staff-management', label: 'Staff Management', description: 'Manage Staff' },
+  { key: 'daily-reports', label: 'Daily Reports', description: 'Accounting Reports' },
+  { key: 'donation', label: 'Donation', description: 'Support Us' }
+];
 
   // Staff menu items 
   const staffMenuItems = [
