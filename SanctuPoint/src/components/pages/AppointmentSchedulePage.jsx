@@ -224,7 +224,7 @@ const AppointmentSchedulePage = () => {
             />
           </div>
           
-          <div className="status-filters">
+          {/* <div className="status-filters">
             <button 
               className={`filter-btn ${filterStatus === 'all' ? 'active' : ''}`}
               onClick={() => setFilterStatus('all')}
@@ -255,7 +255,7 @@ const AppointmentSchedulePage = () => {
             >
               Cancelled ({statusCounts.cancelled})
             </button>
-          </div>
+          </div> */}
         </div>
 
         {loading ? (
@@ -299,6 +299,11 @@ const AppointmentSchedulePage = () => {
                       >
                         {paymentStatus.text}
                       </span>
+                      {appointment.services?.allow_concurrent && (
+                        <span className="concurrent-badge">
+                          🔀 Concurrent
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -362,7 +367,6 @@ const AppointmentSchedulePage = () => {
                     </div>
                   )}
 
-                  {/* Action Buttons - UPDATED: Removed payment button */}
                   <div className="appointment-actions">
                     {(currentUser?.role === 'admin' || currentUser?.role === 'staff') && appointment.status === 'pending' && (
                       <>
@@ -857,6 +861,17 @@ const AppointmentSchedulePage = () => {
             flex-direction: column;
             align-items: flex-start;
             gap: 4px;
+          }
+
+          .concurrent-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #805ad5 0%, #6b46c1 100%);
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
           }
         }
       `}</style>

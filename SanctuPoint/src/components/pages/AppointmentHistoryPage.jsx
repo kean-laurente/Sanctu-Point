@@ -36,7 +36,6 @@ const AppointmentHistoryPage = () => {
     setLoading(true)
     setError('')
     try {
-      // PASS currentUser to the service function
       const result = await archivedAppointmentsService.getArchivedAppointments(currentUser)
       
       if (result.success) {
@@ -59,7 +58,6 @@ const AppointmentHistoryPage = () => {
     }
 
     try {
-      // PASS currentUser to the service function
       const result = await archivedAppointmentsService.restoreAppointment(archivedId, currentUser)
       
       if (result.success) {
@@ -219,7 +217,7 @@ const AppointmentHistoryPage = () => {
             />
           </div>
           
-          <div className="status-filters">
+          {/* <div className="status-filters">
             <button 
               className={`filter-btn ${filterStatus === 'all' ? 'active' : ''}`}
               onClick={() => setFilterStatus('all')}
@@ -238,7 +236,7 @@ const AppointmentHistoryPage = () => {
             >
               Cancelled ({statusCounts.cancelled})
             </button>
-          </div>
+          </div> */}
         </div>
 
         {loading ? (

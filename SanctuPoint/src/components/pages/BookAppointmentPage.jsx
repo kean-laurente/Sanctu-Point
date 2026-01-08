@@ -18,6 +18,7 @@ const BookAppointmentPage = () => {
   const [customRequirements, setCustomRequirements] = useState([''])
   const [selectedProducts, setSelectedProducts] = useState([])
   const [isOfferingOnly, setIsOfferingOnly] = useState(false)
+  const [isAnonymousBooking, setIsAnonymousBooking] = useState(false)
   
   const [availableTimeSlots, setAvailableTimeSlots] = useState([])
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false)
@@ -71,6 +72,28 @@ const BookAppointmentPage = () => {
     }
   }, [formData.date, selectedService])
 
+  useEffect(() => {
+    if (isAnonymousBooking) {
+      // Auto-fill with anonymous data
+      setFormData(prev => ({
+        ...prev,
+        first_name: 'Anonymous',
+        last_name: 'Customer',
+        email: 'anonymous@example.com',
+        phone: ''
+      }))
+    } else {
+      // Clear the fields when turning off anonymous booking
+      setFormData(prev => ({
+        ...prev,
+        first_name: '',
+        last_name: '',
+        email: '',
+        phone: ''
+      }))
+    }
+  }, [isAnonymousBooking])
+
   const loadCurrentUser = () => {
     const user = authService.getCurrentUser()
     setCurrentUser(user)
@@ -110,6 +133,14 @@ const BookAppointmentPage = () => {
       const selectedDate = new Date(formData.date)
       const dayOfWeek = selectedDate.getDay()
       
+      console.log('📅 Checking availability for:', {
+        date: formData.date,
+        dayOfWeek,
+        serviceId: selectedService.service_id,
+        serviceName: selectedService.service_name,
+        allowConcurrent: selectedService.allow_concurrent
+      });
+      
       if (!selectedService.allowed_days.includes(dayOfWeek)) {
         const allowedDays = selectedService.allowed_days
           .map(d => DAYS_OF_WEEK.find(day => day.value === d)?.short)
@@ -148,8 +179,13 @@ const BookAppointmentPage = () => {
               duration
             )
             
+            console.log('📊 Multi-day time slots result:', slotsResult);
+            
             if (slotsResult.success) {
               setAvailableTimeSlots(slotsResult.data)
+              console.log('✅ Multi-day available slots:', slotsResult.data.length, slotsResult.data);
+            } else {
+              console.error('❌ Multi-day error getting time slots:', slotsResult.error)
             }
           }
         }
@@ -161,10 +197,13 @@ const BookAppointmentPage = () => {
           duration
         )
         
+        console.log('📊 Time slots result:', result);
+        
         if (result.success) {
           setAvailableTimeSlots(result.data)
+          console.log('✅ Available slots:', result.data.length, result.data);
         } else {
-          console.error('Error getting time slots:', result.error)
+          console.error('❌ Error getting time slots:', result.error)
         }
       }
     } catch (err) {
@@ -551,30 +590,34 @@ const BookAppointmentPage = () => {
     if (!formData.date.trim()) errors.push('Date is required')
     if (!formData.time.trim()) errors.push('Time is required')
     if (!formData.service_type.trim()) errors.push('Service type is required')
-    if (!formData.first_name.trim()) errors.push('First name is required')
-    if (!formData.last_name.trim()) errors.push('Last name is required')
     
-    const nameRegex = /^[a-zA-Z\s\-']+$/
-    if (formData.first_name.trim() && !nameRegex.test(formData.first_name)) {
-      errors.push('First name can only contain letters, spaces, hyphens, and apostrophes')
-    }
-    if (formData.last_name.trim() && !nameRegex.test(formData.last_name)) {
-      errors.push('Last name can only contain letters, spaces, hyphens, and apostrophes')
-    }
-    
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!formData.email.trim()) {
-      errors.push('Email is required')
-    } else if (!emailRegex.test(formData.email)) {
-      errors.push('Please enter a valid email address')
-    }
-    
-    if (formData.phone.trim()) {
-      const cleanPhone = formData.phone.replace(/\D/g, '')
-      if (cleanPhone.length < 10) {
-        errors.push('Phone number must be at least 10 digits')
-      } else if (!/^(09|9)/.test(cleanPhone)) {
-        errors.push('Philippine phone numbers must start with 09 or 9')
+    // Only validate personal info if not anonymous booking
+    if (!isAnonymousBooking) {
+      if (!formData.first_name.trim()) errors.push('First name is required')
+      if (!formData.last_name.trim()) errors.push('Last name is required')
+      
+      const nameRegex = /^[a-zA-Z\s\-']+$/
+      if (formData.first_name.trim() && !nameRegex.test(formData.first_name)) {
+        errors.push('First name can only contain letters, spaces, hyphens, and apostrophes')
+      }
+      if (formData.last_name.trim() && !nameRegex.test(formData.last_name)) {
+        errors.push('Last name can only contain letters, spaces, hyphens, and apostrophes')
+      }
+      
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!formData.email.trim()) {
+        errors.push('Email is required')
+      } else if (!emailRegex.test(formData.email)) {
+        errors.push('Please enter a valid email address')
+      }
+      
+      if (formData.phone.trim()) {
+        const cleanPhone = formData.phone.replace(/\D/g, '')
+        if (cleanPhone.length < 10) {
+          errors.push('Phone number must be at least 10 digits')
+        } else if (!/^(09|9)/.test(cleanPhone)) {
+          errors.push('Philippine phone numbers must start with 09 or 9')
+        }
       }
     }
     
@@ -619,8 +662,6 @@ const BookAppointmentPage = () => {
 
   const validateOfferingForm = () => {
     const errors = []
-    
-    if (!offeringData.customer_name.trim()) errors.push('Customer name is required')
     
     const nameRegex = /^[a-zA-Z\s\-']+$/
     if (offeringData.customer_name.trim() && !nameRegex.test(offeringData.customer_name)) {
@@ -690,11 +731,21 @@ const BookAppointmentPage = () => {
       const validCustomReqs = customRequirements.filter(req => req.trim() !== '')
       allRequirements.push(...validCustomReqs)
 
+      // Prepare data WITHOUT is_anonymous field
       const cleanedData = {
         ...formData,
+        // These fields are already auto-filled by the useEffect
+        // when isAnonymousBooking is true
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        email: formData.email,
         phone: formData.phone ? formData.phone.replace(/\D/g, '') : '',
+        amount_paid: formData.amount_paid,
         requirements: allRequirements
+        // REMOVE: is_anonymous: isAnonymousBooking
       }
+
+      console.log('Submitting appointment data:', cleanedData)
 
       const appointmentResult = await appointmentService.createAppointment(cleanedData, currentUser)
 
@@ -753,6 +804,7 @@ const BookAppointmentPage = () => {
       const result = await offeringService.processOfferingOnly(
         {
           ...offeringData,
+          customer_name: offeringData.customer_name.trim() || 'Anonymous Donor', // Default value
           items: selectedProducts
         },
         currentUser
@@ -787,6 +839,7 @@ const BookAppointmentPage = () => {
       phone: '',
       amount_paid: '',
     })
+    setIsAnonymousBooking(false)
     setSelectedService(null)
     setServiceRequirements([])
     setCustomRequirements([''])
@@ -848,6 +901,7 @@ const BookAppointmentPage = () => {
 
         {isOfferingOnly ? (
           <form onSubmit={handleSubmitOfferingOnly} className="offering-form">
+            {/* Offering form remains the same - you can add anonymous option here too if needed */}
             <div className="form-section">
               <div className="section-title">
                 <h3>Customer Information</h3>
@@ -855,48 +909,41 @@ const BookAppointmentPage = () => {
               </div>
               
               <div className="form-group">
-                <label htmlFor="offering_customer_name">Customer Name *</label>
+                <label htmlFor="customer_name">Customer Name (Optional)</label>
                 <input
                   type="text"
-                  id="offering_customer_name"
+                  id="customer_name"
                   name="customer_name"
                   value={offeringData.customer_name}
                   onChange={handleOfferingInputChange}
-                  required
                   placeholder="Enter customer name"
                   disabled={loading}
                   maxLength="100"
-                  pattern="[a-zA-Z\s\-']+"
-                  title="Only letters, spaces, hyphens, and apostrophes are allowed"
                 />
-                <small className="input-hint">Letters, spaces, hyphens, and apostrophes only</small>
               </div>
 
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="offering_customer_email">Email (Optional)</label>
+                  <label htmlFor="customer_email">Email (Optional)</label>
                   <input
                     type="email"
-                    id="offering_customer_email"
+                    id="customer_email"
                     name="customer_email"
                     value={offeringData.customer_email}
                     onChange={handleOfferingInputChange}
                     placeholder="Enter email"
                     disabled={loading}
                     maxLength="100"
-                    pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"
-                    title="Please enter a valid email address"
                   />
-                  <small className="input-hint">Enter a valid email address</small>
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="offering_customer_phone">Phone (Optional)</label>
+                  <label htmlFor="customer_phone">Phone Number (Optional)</label>
                   <div className="phone-input-container">
                     <span className="phone-prefix">+63</span>
                     <input
                       type="tel"
-                      id="offering_customer_phone"
+                      id="customer_phone"
                       name="customer_phone"
                       value={offeringData.customer_phone}
                       onChange={handleOfferingInputChange}
@@ -906,209 +953,149 @@ const BookAppointmentPage = () => {
                       inputMode="numeric"
                       disabled={loading}
                       className="phone-input"
-                      title="Enter 10-digit Philippine phone number"
                     />
                   </div>
-                  <small className="input-hint">Optional. Enter 10-digit number starting with 9</small>
                 </div>
               </div>
             </div>
 
-            <div className="form-section">
+            {/* Products selection and payment sections remain the same */}
+            <div className="form-section offerings-section">
               <div className="section-title">
                 <h3>Select Offerings</h3>
-                <p>Choose items for the offering</p>
+                <p>Choose offerings to record</p>
               </div>
               
-              <div className="products-grid">
+              <div className="offerings-grid">
                 {products.map(product => (
-                  <div key={product.product_id} className="product-card">
-                    <div className="product-info">
+                  <div key={product.product_id} className="offering-card">
+                    <div className="offering-info">
                       <h4>{product.product_name}</h4>
-                      <p className="product-price">₱{product.price.toFixed(2)}</p>
+                      <p className="offering-price">₱{product.price.toFixed(2)}</p>
                       {product.description && (
-                        <p className="product-description">{product.description}</p>
+                        <p className="offering-description">{product.description}</p>
                       )}
                     </div>
                     
-                    <div className="product-actions">
-                      <button
-                        type="button"
-                        onClick={() => handleProductSelect(product.product_id)}
-                        className="add-product-btn"
-                        disabled={loading}
-                      >
-                        Add
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleProductSelect(product.product_id)}
+                      className="add-offering-btn"
+                      disabled={loading}
+                    >
+                      Add Offering
+                    </button>
                   </div>
                 ))}
               </div>
-            </div>
-
-            {selectedProducts.length > 0 && (
-              <div className="form-section">
-                <div className="section-title">
-                  <h3>Selected Offerings</h3>
-                  <p>Review and adjust quantities</p>
-                </div>
-                
-                <div className="selected-products-list">
-                  {selectedProducts.map(product => (
-                    <div key={product.product_id} className="selected-product">
-                      <div className="product-details">
-                        <span className="product-name">{product.product_name}</span>
-                        <span className="product-unit-price">₱{product.unit_price.toFixed(2)} each</span>
-                      </div>
-                      
-                      <div className="product-quantity-controls">
-                        <button
-                          type="button"
-                          onClick={() => handleProductQuantityChange(product.product_id, product.quantity - 1)}
-                          className="quantity-btn"
-                          disabled={loading || product.quantity <= product.min_quantity}
-                        >
-                          -
-                        </button>
-                        <span className="quantity-display">{product.quantity}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleProductQuantityChange(product.product_id, product.quantity + 1)}
-                          className="quantity-btn"
-                          disabled={loading || product.quantity >= product.max_quantity}
-                        >
-                          +
-                        </button>
+              
+              {selectedProducts.length > 0 && (
+                <div className="selected-offerings">
+                  <h4>Selected Offerings:</h4>
+                  <ul>
+                    {selectedProducts.map(product => (
+                      <li key={product.product_id}>
+                        <span>{product.product_name} x{product.quantity}</span>
+                        <span>₱{(product.quantity * product.unit_price).toFixed(2)}</span>
                         <button
                           type="button"
                           onClick={() => handleRemoveProduct(product.product_id)}
-                          className="remove-product-btn"
+                          className="remove-offering-btn"
                           disabled={loading}
                         >
                           Remove
                         </button>
-                      </div>
-                      
-                      <div className="product-total">
-                        ₱{(product.quantity * product.unit_price).toFixed(2)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                
-                <div className="offering-summary">
-                  <div className="summary-row">
-                    <span className="summary-label">Total Offerings:</span>
-                    <span className="summary-value">₱{calculateOfferingTotal().toFixed(2)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="offerings-total">
+                    <span>Total Offerings:</span>
+                    <span>₱{calculateOfferingTotal().toFixed(2)}</span>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
             <div className="form-section payment-section">
               <div className="section-title">
                 <h3>Payment Information</h3>
-                <p>Cash payment for offerings</p>
+                <p>Record payment for offerings</p>
               </div>
               
               <div className="payment-summary">
-                {selectedProducts.length > 0 && (
-                  <>
-                    <div className="quick-amounts">
-                      <p className="quick-amounts-label">Quick Amounts:</p>
-                      <div className="quick-amount-buttons">
-                        <button type="button" onClick={() => handleOfferingQuickAmount(100)} className="quick-amount-btn">
-                          ₱100
-                        </button>
-                        <button type="button" onClick={() => handleOfferingQuickAmount(500)} className="quick-amount-btn">
-                          ₱500
-                        </button>
-                        <button type="button" onClick={() => handleOfferingQuickAmount(1000)} className="quick-amount-btn">
-                          ₱1,000
-                        </button>
-                        <button type="button" onClick={() => handleOfferingQuickAmount(2000)} className="quick-amount-btn">
-                          ₱2,000
-                        </button>
-                        <button type="button" onClick={() => handleOfferingQuickAmount(calculateOfferingTotal())} className="quick-amount-btn exact">
-                          Exact: ₱{calculateOfferingTotal().toFixed(2)}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="form-group">
-                      <label htmlFor="offering_amount_paid">Amount Paid (₱) *</label>
-                      <div className="amount-input-container">
-                        <span className="currency-symbol">₱</span>
-                        <input
-                          ref={offeringAmountRef}
-                          type="text"
-                          id="offering_amount_paid"
-                          name="amount_paid"
-                          value={offeringData.amount_paid}
-                          onChange={handleOfferingInputChange}
-                          required
-                          placeholder="0.00"
-                          disabled={loading}
-                          className="amount-input"
-                          inputMode="decimal"
-                          pattern="\d*\.?\d{0,2}"
-                          title="Enter amount in Philippine Peso"
-                        />
-                        <button
-                          type="button"
-                          onClick={handleClearOfferingAmount}
-                          className="clear-amount-btn"
-                          disabled={loading}
-                          title="Clear amount"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                      <small className="input-hint">
-                        Enter the exact cash amount received
-                      </small>
-                    </div>
-                    
-                    {offeringData.amount_paid && (
-                      <div className="change-calculation">
-                        <div className="calculation-row">
-                          <span className="label">Total Offerings:</span>
-                          <span className="value">₱{calculateOfferingTotal().toFixed(2)}</span>
-                        </div>
-                        <div className="calculation-row">
-                          <span className="label">Amount Paid:</span>
-                          <span className="value">₱{parseFloat(offeringData.amount_paid || 0).toFixed(2)}</span>
-                        </div>
-                        <div className="calculation-row total">
-                          <span className="label">Change to give:</span>
-                          <span className={`value ${offeringChangeAmount < 0 ? 'error' : ''}`}>
-                            ₱{offeringChangeAmount.toFixed(2)}
-                          </span>
-                        </div>
-                        {offeringChangeAmount < 0 && (
-                          <div className="payment-warning">
-                            ⚠️ Amount paid is less than total offerings!
-                          </div>
-                        )}
-                        {offeringChangeAmount > 0 && (
-                          <div className="payment-note">
-                            ✅ Amount paid is sufficient. Change to give: ₱{offeringChangeAmount.toFixed(2)}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </>
-                )}
-                
-                <div className="payment-method-display">
-                  <div className="method-row">
-                    <span className="label">Payment Method:</span>
-                    <span className="value cash-method">💵 CASH</span>
-                  </div>
-                  <div className="receipt-note">
-                    <small>A receipt will be automatically printed after recording offering</small>
+                <div className="quick-amounts">
+                  <p className="quick-amounts-label">Quick Amounts:</p>
+                  <div className="quick-amount-buttons">
+                    <button type="button" onClick={() => handleOfferingQuickAmount(100)} className="quick-amount-btn">
+                      ₱100
+                    </button>
+                    <button type="button" onClick={() => handleOfferingQuickAmount(500)} className="quick-amount-btn">
+                      ₱500
+                    </button>
+                    <button type="button" onClick={() => handleOfferingQuickAmount(1000)} className="quick-amount-btn">
+                      ₱1,000
+                    </button>
+                    <button type="button" onClick={() => handleOfferingQuickAmount(2000)} className="quick-amount-btn">
+                      ₱2,000
+                    </button>
+                    <button type="button" onClick={() => handleOfferingQuickAmount(calculateOfferingTotal())} className="quick-amount-btn exact">
+                      Exact: ₱{calculateOfferingTotal().toFixed(2)}
+                    </button>
                   </div>
                 </div>
+                
+                <div className="form-group">
+                  <label htmlFor="offering_amount_paid">Amount Paid (₱) *</label>
+                  <div className="amount-input-container">
+                    <span className="currency-symbol">₱</span>
+                    <input
+                      ref={offeringAmountRef}
+                      type="text"
+                      id="offering_amount_paid"
+                      name="amount_paid"
+                      value={offeringData.amount_paid}
+                      onChange={handleOfferingInputChange}
+                      required
+                      placeholder="0.00"
+                      disabled={loading}
+                      className="amount-input"
+                      inputMode="decimal"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleClearOfferingAmount}
+                      className="clear-amount-btn"
+                      disabled={loading}
+                      title="Clear amount"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+                
+                {offeringData.amount_paid && (
+                  <div className="change-calculation">
+                    <div className="calculation-row subtotal">
+                      <span className="label">Offerings Total:</span>
+                      <span className="value">₱{calculateOfferingTotal().toFixed(2)}</span>
+                    </div>
+                    <div className="calculation-row">
+                      <span className="label">Amount Paid:</span>
+                      <span className="value">₱{parseFloat(offeringData.amount_paid || 0).toFixed(2)}</span>
+                    </div>
+                    <div className="calculation-row total">
+                      <span className="label">Change to give:</span>
+                      <span className={`value ${offeringChangeAmount < 0 ? 'error' : ''}`}>
+                        ₱{offeringChangeAmount.toFixed(2)}
+                      </span>
+                    </div>
+                    {offeringChangeAmount < 0 && (
+                      <div className="payment-warning">
+                        ⚠️ Amount paid is less than total!
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1126,7 +1113,7 @@ const BookAppointmentPage = () => {
                 ) : (
                   <>
                     <span className="icon">💰</span>
-                    Record Offering
+                    {offeringData.customer_name.trim() ? 'Record Offering & Print Receipt' : 'Record Anonymous Offering'}
                   </>
                 )}
               </button>
@@ -1140,85 +1127,122 @@ const BookAppointmentPage = () => {
                 <p>Provide your contact details</p>
               </div>
               
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="first_name">First Name *</label>
+              {/* Anonymous Booking Toggle */}
+              <div className="anonymous-booking-toggle">
+                <label className="toggle-label">
                   <input
-                    type="text"
-                    id="first_name"
-                    name="first_name"
-                    value={formData.first_name}
-                    onChange={handleInputChange}
-                    required
-                    placeholder="Enter your first name"
+                    type="checkbox"
+                    checked={isAnonymousBooking}
+                    onChange={(e) => setIsAnonymousBooking(e.target.checked)}
                     disabled={loading}
-                    pattern="[a-zA-Z\s\-']+"
-                    title="Only letters, spaces, hyphens, and apostrophes are allowed"
-                    maxLength="50"
                   />
-                  <small className="input-hint">Letters, spaces, hyphens, and apostrophes only</small>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="last_name">Last Name *</label>
-                  <input
-                    type="text"
-                    id="last_name"
-                    name="last_name"
-                    value={formData.last_name}
-                    onChange={handleInputChange}
-                    required
-                    placeholder="Enter your last name"
-                    disabled={loading}
-                    pattern="[a-zA-Z\s\-']+"
-                    title="Only letters, spaces, hyphens, and apostrophes are allowed"
-                    maxLength="50"
-                  />
-                  <small className="input-hint">Letters, spaces, hyphens, and apostrophes only</small>
-                </div>
+                  <span className="toggle-slider"></span>
+                  <span className="toggle-text">Book Anonymously (No personal information required)</span>
+                </label>
+                <small className="toggle-hint">
+                  If checked, only service details and payment will be recorded
+                </small>
               </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="email">Email *</label>
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    required
-                    placeholder="Enter your email"
-                    disabled={loading}
-                    maxLength="100"
-                    pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"
-                    title="Please enter a valid email address"
-                  />
-                  <small className="input-hint">Enter a valid email address</small>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="phone">Phone Number (Optional)</label>
-                  <div className="phone-input-container">
-                    <span className="phone-prefix">+63</span>
-                    <input
-                      type="tel"
-                      id="phone"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleInputChange}
-                      placeholder="9123456789"
-                      maxLength="10"
-                      pattern="[0-9]*"
-                      inputMode="numeric"
-                      disabled={loading}
-                      className="phone-input"
-                      title="Enter 10-digit Philippine phone number"
-                    />
+              
+              {isAnonymousBooking && (
+                <div className="anonymous-notice">
+                  <div className="notice-icon">👤</div>
+                  <div className="notice-content">
+                    <h4>Anonymous Booking Selected</h4>
+                    <p>
+                      Your appointment will be recorded as: <strong>{formData.first_name} {formData.last_name}</strong><br/>
+                      Email: <strong>{formData.email}</strong><br/>
+                      Only service details and payment information will be saved. 
+                      Please keep your receipt for reference.
+                    </p>
+                    <small>
+                      Note: Without contact information, we cannot send reminders or updates about your appointment.
+                    </small>
                   </div>
-                  <small className="input-hint">Optional. Enter 10-digit number starting with 9</small>
                 </div>
-              </div>
+              )}{!isAnonymousBooking && (
+                <>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label htmlFor="first_name">First Name *</label>
+                      <input
+                        type="text"
+                        id="first_name"
+                        name="first_name"
+                        value={formData.first_name}
+                        onChange={handleInputChange}
+                        required
+                        placeholder="Enter your first name"
+                        disabled={loading}
+                        pattern="[a-zA-Z\s\-']+"
+                        title="Only letters, spaces, hyphens, and apostrophes are allowed"
+                        maxLength="50"
+                      />
+                      <small className="input-hint">Letters, spaces, hyphens, and apostrophes only</small>
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="last_name">Last Name *</label>
+                      <input
+                        type="text"
+                        id="last_name"
+                        name="last_name"
+                        value={formData.last_name}
+                        onChange={handleInputChange}
+                        required
+                        placeholder="Enter your last name"
+                        disabled={loading}
+                        pattern="[a-zA-Z\s\-']+"
+                        title="Only letters, spaces, hyphens, and apostrophes are allowed"
+                        maxLength="50"
+                      />
+                      <small className="input-hint">Letters, spaces, hyphens, and apostrophes only</small>
+                    </div>
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label htmlFor="email">Email *</label>
+                      <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        value={formData.email}
+                        onChange={handleInputChange}
+                        required
+                        placeholder="Enter your email"
+                        disabled={loading}
+                        maxLength="100"
+                        pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"
+                        title="Please enter a valid email address"
+                      />
+                      <small className="input-hint">Enter a valid email address</small>
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="phone">Phone Number (Optional)</label>
+                      <div className="phone-input-container">
+                        <span className="phone-prefix">+63</span>
+                        <input
+                          type="tel"
+                          id="phone"
+                          name="phone"
+                          value={formData.phone}
+                          onChange={handleInputChange}
+                          placeholder="9123456789"
+                          maxLength="10"
+                          pattern="[0-9]*"
+                          inputMode="numeric"
+                          disabled={loading}
+                          className="phone-input"
+                          title="Enter 10-digit Philippine phone number"
+                        />
+                      </div>
+                      <small className="input-hint">Optional. Enter 10-digit number starting with 9</small>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="form-section">
@@ -1258,6 +1282,9 @@ const BookAppointmentPage = () => {
                   ) : availableTimeSlots.length === 0 && formData.date && selectedService ? (
                     <div className="no-slots-available">
                       <p>⚠️ No available time slots for this date.</p>
+                      {dayConstraints && !dayConstraints.isValid && (
+                        <p className="day-constraint-error">{dayConstraints.message}</p>
+                      )}
                       {consecutiveDaysAvailability && !consecutiveDaysAvailability.allDaysAvailable && (
                         <div className="multi-day-warning">
                           <p>This service requires {selectedService.consecutive_days} consecutive days.</p>
@@ -1286,6 +1313,7 @@ const BookAppointmentPage = () => {
                         .map(slot => (
                           <option key={slot.value} value={slot.value}>
                             {slot.display}
+                            {slot.allowConcurrent && ' 🔀'}
                           </option>
                         ))}
                     </select>
@@ -1295,7 +1323,7 @@ const BookAppointmentPage = () => {
                       <>
                         Duration: {formatDuration(selectedService.duration_minutes)}
                         {selectedService.requires_multiple_days && ` | ${selectedService.consecutive_days} consecutive days required`}
-                        {selectedService.allow_concurrent && ' | Concurrent appointments allowed'}
+                        {selectedService.allow_concurrent && ' | 🔀 Concurrent appointments allowed'}
                       </>
                     )}
                   </small>
@@ -1319,11 +1347,12 @@ const BookAppointmentPage = () => {
                       {service.has_requirements && ' 📋'}
                       {service.requires_multiple_days && ` 🔄 ${service.consecutive_days} days`}
                       {service.duration_minutes && ` ⏱️ ${formatDuration(service.duration_minutes)}`}
+                      {service.allow_concurrent && ' 🔀 Concurrent'}
                     </option>
                   ))}
                 </select>
                 <small className="input-hint">
-                  📋 = Has requirements | 🔄 = Multi-day service | ⏱️ = Duration
+                  📋 = Has requirements | 🔄 = Multi-day service | ⏱️ = Duration | 🔀 = Concurrent allowed
                 </small>
               </div>
             </div>
@@ -1476,6 +1505,11 @@ const BookAppointmentPage = () => {
               {selectedService ? (
                 <div className="payment-summary">
                   <div className="payment-summary-header">
+                    {isAnonymousBooking && (
+                      <div className="anonymous-booking-indicator">
+                        <span className="anonymous-badge">👤 Anonymous Booking</span>
+                      </div>
+                    )}
                     <div className="service-fee">
                       <span className="label">Service Fee:</span>
                       <span className="amount">₱{selectedService.price.toFixed(2)}</span>
@@ -1590,13 +1624,14 @@ const BookAppointmentPage = () => {
                   )}
                   
                   <div className="payment-method-display">
-                    {/* <div className="method-row">
-                      <span className="label">Payment Method:</span>
-                      <span className="value cash-method">💵 CASH</span>
-                    </div> */}
                     <div className="receipt-note">
-                      <small>A receipt will be automatically printed after booking</small>
-                    </div>
+                    <small>A receipt will be automatically printed after booking</small>
+                    {isAnonymousBooking && (
+                      <small className="anonymous-receipt-note">
+                        <br/>Receipt will show "{formData.first_name} {formData.last_name}" as the customer name
+                      </small>
+                    )}
+                  </div>
                   </div>
                 </div>
               ) : (
@@ -1620,7 +1655,7 @@ const BookAppointmentPage = () => {
                 ) : (
                   <>
                     <span className="icon">✓</span>
-                    Book & Pay Appointment
+                    {isAnonymousBooking ? 'Book Anonymous Appointment' : 'Book & Pay Appointment'}
                   </>
                 )}
               </button>
@@ -1629,6 +1664,7 @@ const BookAppointmentPage = () => {
                 <small>
                   By booking, you agree to pay the full amount in cash. 
                   Appointment will be automatically confirmed upon payment.
+                  {isAnonymousBooking && ' Anonymous bookings will not receive appointment reminders.'}
                 </small>
               </div>
             </div>
@@ -1769,6 +1805,127 @@ const BookAppointmentPage = () => {
           font-size: 14px;
         }
 
+        /* Anonymous Booking Toggle Styles */
+        .anonymous-booking-toggle {
+          margin-bottom: 24px;
+          padding: 16px;
+          background: white;
+          border-radius: 8px;
+          border: 2px solid #e2e8f0;
+        }
+
+        .toggle-label {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          cursor: pointer;
+          font-weight: 500;
+          color: #2d3748;
+        }
+
+        .toggle-label input[type="checkbox"] {
+          display: none;
+        }
+
+        .toggle-slider {
+          position: relative;
+          display: inline-block;
+          width: 52px;
+          height: 28px;
+          background-color: #cbd5e0;
+          border-radius: 14px;
+          transition: background-color 0.3s;
+        }
+
+        .toggle-slider:before {
+          content: "";
+          position: absolute;
+          width: 24px;
+          height: 24px;
+          left: 2px;
+          bottom: 2px;
+          background-color: white;
+          border-radius: 50%;
+          transition: transform 0.3s;
+        }
+
+        .toggle-label input:checked + .toggle-slider {
+          background-color: #4299e1;
+        }
+
+        .toggle-label input:checked + .toggle-slider:before {
+          transform: translateX(24px);
+        }
+
+        .toggle-text {
+          font-size: 15px;
+          font-weight: 600;
+          color: #4a5568;
+        }
+
+        .toggle-hint {
+          display: block;
+          margin-top: 8px;
+          color: #718096;
+          font-size: 13px;
+          margin-left: 64px;
+        }
+
+        .anonymous-notice {
+          display: flex;
+          gap: 16px;
+          padding: 20px;
+          background: linear-gradient(135deg, #f0fff4 0%, #e6fffa 100%);
+          border-radius: 8px;
+          border-left: 4px solid #38a169;
+          margin-top: 16px;
+        }
+
+        .notice-icon {
+          font-size: 32px;
+          display: flex;
+          align-items: center;
+        }
+
+        .notice-content h4 {
+          margin: 0 0 8px 0;
+          color: #22543d;
+          font-size: 16px;
+        }
+
+        .notice-content p {
+          margin: 0 0 8px 0;
+          color: #2d3748;
+          font-size: 14px;
+          line-height: 1.5;
+        }
+
+        .notice-content small {
+          color: #4a5568;
+          font-size: 12px;
+          font-style: italic;
+        }
+
+        .anonymous-booking-indicator {
+          margin-bottom: 15px;
+          text-align: center;
+        }
+
+        .anonymous-badge {
+          display: inline-block;
+          padding: 6px 12px;
+          background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+          color: white;
+          border-radius: 20px;
+          font-size: 14px;
+          font-weight: 600;
+        }
+
+        .anonymous-receipt-note {
+          color: #4a5568;
+          font-style: italic;
+        }
+
         .form-row {
           display: grid;
           grid-template-columns: 1fr 1fr;
@@ -1859,6 +2016,15 @@ const BookAppointmentPage = () => {
           border-radius: 8px;
           color: #9b2c2c;
           font-size: 14px;
+        }
+
+        .day-constraint-error {
+          margin-top: 8px;
+          padding: 8px;
+          background: #feebc8;
+          border-radius: 4px;
+          color: #744210;
+          font-size: 13px;
         }
 
         .multi-day-warning {
@@ -2690,6 +2856,26 @@ const BookAppointmentPage = () => {
 
           .mode-btn {
             width: 100%;
+          }
+
+          .anonymous-notice {
+            flex-direction: column;
+            text-align: center;
+          }
+          
+          .notice-icon {
+            justify-content: center;
+          }
+          
+          .toggle-hint {
+            margin-left: 0;
+            margin-top: 12px;
+          }
+          
+          .toggle-label {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
           }
 
           .requirement-row {

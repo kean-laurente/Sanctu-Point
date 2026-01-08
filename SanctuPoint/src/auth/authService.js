@@ -56,6 +56,8 @@ export const authService = {
       };
 
       localStorage.setItem('user', JSON.stringify(userSession));
+      localStorage.setItem('sessionActive', 'true');
+      localStorage.setItem('loginTimestamp', Date.now().toString());
       
       return {
         success: true,
@@ -72,18 +74,34 @@ export const authService = {
     }
   },
 
-  // ... rest of your authService methods remain the same
   async logout() {
+    // Clear all session data
     localStorage.removeItem('user');
+    localStorage.removeItem('sessionActive');
+    localStorage.removeItem('loginTimestamp');
+    localStorage.removeItem('lastTabClosed');
+    sessionStorage.removeItem('tabId');
+    sessionStorage.removeItem('tabCreated');
     return { success: true, message: 'Logout successful!' };
   },
 
   isAuthenticated() {
     const user = localStorage.getItem('user');
-    return user ? JSON.parse(user).isAuthenticated === true : false;
+    const sessionActive = localStorage.getItem('sessionActive');
+    const tabId = sessionStorage.getItem('tabId');
+    
+    // Must have all three: user data, active session, and valid tab
+    if (user && sessionActive === 'true' && tabId) {
+      return JSON.parse(user).isAuthenticated === true;
+    }
+    return false;
   },
 
   getCurrentUser() {
+    if (!this.isAuthenticated()) {
+      return null;
+    }
+    
     const user = localStorage.getItem('user');
     return user ? JSON.parse(user) : null;
   },
@@ -91,6 +109,28 @@ export const authService = {
   hasRole(role) {
     const user = this.getCurrentUser();
     return user && user.role === role;
+  },
+
+  // Check if session is valid for current tab
+  validateTabSession() {
+    const tabId = sessionStorage.getItem('tabId');
+    const sessionActive = localStorage.getItem('sessionActive');
+    const lastTabClosed = localStorage.getItem('lastTabClosed');
+    const tabCreated = sessionStorage.getItem('tabCreated');
+    
+    if (!tabId || !tabCreated) {
+      return false;
+    }
+    
+    // Check if this tab was created right after another tab closed
+    if (lastTabClosed && tabCreated) {
+      const timeDiff = parseInt(tabCreated) - parseInt(lastTabClosed);
+      if (timeDiff < 100) { // Less than 100ms difference
+        return false; // This is likely a reopened closed tab
+      }
+    }
+    
+    return sessionActive === 'true';
   },
 
   async registerStaff(userData, currentAdmin) {

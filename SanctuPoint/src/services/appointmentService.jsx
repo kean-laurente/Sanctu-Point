@@ -91,31 +91,100 @@ const validateDateInAdvance = (date) => {
   return appointmentDate >= tomorrow;
 };
 
-const checkTimeConflicts = (dayAppointments, appointmentStartMinutes, appointmentEndMinutes, bufferMinutes = 60) => {
-  for (const existingApp of dayAppointments || []) {
-    const [appHours, appMinutes] = existingApp.appointment_time.split(':').map(Number);
+// UPDATED: FIXED checkTimeConflicts function with proper overlap detection for all scenarios
+const checkTimeConflicts = (existingAppointments, slotStartMinutes, slotEndMinutes, bufferMinutes = 60, allowConcurrent = false, serviceType = null) => {
+  // If there are no existing appointments, no conflict
+  if (!existingAppointments || existingAppointments.length === 0) {
+    return { hasConflict: false };
+  }
+  
+  // For all appointments, check for conflicts
+  for (const appointment of existingAppointments) {
+    const [appHours, appMinutes] = appointment.appointment_time.split(':').map(Number);
     const appStartMinutes = appHours * 60 + appMinutes;
-    const appDuration = existingApp.service_duration || 60;
+    const appDuration = appointment.service_duration || 60;
     const appEndMinutes = appStartMinutes + appDuration;
-    const bufferEndMinutes = appEndMinutes + bufferMinutes;
+    const bufferStartMinutes = appEndMinutes; // Buffer starts immediately after appointment
+    const bufferEndMinutes = appEndMinutes + bufferMinutes; // Buffer ends after buffer duration
     
-    const hasConflict = 
-      (appointmentStartMinutes < appEndMinutes && appointmentEndMinutes > appStartMinutes) ||
-      (appointmentStartMinutes >= appEndMinutes && appointmentStartMinutes < bufferEndMinutes) ||
-      (appointmentEndMinutes > appEndMinutes && appointmentEndMinutes <= bufferEndMinutes) ||
-      (appointmentStartMinutes <= appEndMinutes && appointmentEndMinutes >= bufferEndMinutes);
+    let hasConflict = false;
+    
+    if (allowConcurrent && serviceType) {
+      // For concurrent appointments:
+      if (appointment.service_type === serviceType) {
+        // Same service type - only check buffer violations (can run at same time)
+        const violatesBuffer = 
+          (slotStartMinutes >= appEndMinutes && slotStartMinutes < bufferEndMinutes) ||  // New appointment STARTS during buffer
+          (slotEndMinutes > appEndMinutes && slotEndMinutes <= bufferEndMinutes);        // New appointment ENDS during buffer
+        
+        hasConflict = violatesBuffer;
+      } else {
+        // Different service type - check normal conflicts including buffer
+        
+        // Check for ANY overlap (even partial)
+        const overlaps = 
+          (slotStartMinutes >= appStartMinutes && slotStartMinutes < appEndMinutes) ||   // New starts during existing
+          (slotEndMinutes > appStartMinutes && slotEndMinutes <= appEndMinutes) ||       // New ends during existing
+          (slotStartMinutes <= appStartMinutes && slotEndMinutes >= appEndMinutes);      // New completely encompasses existing
+        
+        // Check for buffer conflicts
+        const startsDuringBuffer = slotStartMinutes >= appEndMinutes && slotStartMinutes < bufferEndMinutes;
+        const endsDuringBuffer = slotEndMinutes > appEndMinutes && slotEndMinutes <= bufferEndMinutes;
+        
+        // Check if new appointment starts BEFORE but ends DURING or AFTER existing appointment
+        const startsBeforeEndsDuringOrAfter = 
+          (slotStartMinutes < appStartMinutes && slotEndMinutes > appStartMinutes);
+        
+        hasConflict = overlaps || startsDuringBuffer || endsDuringBuffer || startsBeforeEndsDuringOrAfter;
+      }
+    } else {
+      // Standard conflict checking for non-concurrent appointments
+      
+      // Check for ANY overlap (even partial)
+      const overlaps = 
+        (slotStartMinutes >= appStartMinutes && slotStartMinutes < appEndMinutes) ||   // New starts during existing
+        (slotEndMinutes > appStartMinutes && slotEndMinutes <= appEndMinutes) ||       // New ends during existing
+        (slotStartMinutes <= appStartMinutes && slotEndMinutes >= appEndMinutes);      // New completely encompasses existing
+      
+      // Check for buffer conflicts
+      const startsDuringBuffer = slotStartMinutes >= appEndMinutes && slotStartMinutes < bufferEndMinutes;
+      const endsDuringBuffer = slotEndMinutes > appEndMinutes && slotEndMinutes <= bufferEndMinutes;
+      
+      // Check if new appointment starts BEFORE but ends DURING or AFTER existing appointment
+      const startsBeforeEndsDuringOrAfter = 
+        (slotStartMinutes < appStartMinutes && slotEndMinutes > appStartMinutes);
+      
+      hasConflict = overlaps || startsDuringBuffer || endsDuringBuffer || startsBeforeEndsDuringOrAfter;
+    }
     
     if (hasConflict) {
-      const nextAvailableMinutes = appEndMinutes + bufferMinutes;
+      // Calculate next available time based on the end of the buffer
+      const nextAvailableMinutes = bufferEndMinutes; // After buffer ends
       const nextAvailableHour = Math.floor(nextAvailableMinutes / 60);
       const nextAvailableMinute = nextAvailableMinutes % 60;
       const displayHour = nextAvailableHour % 12 || 12;
       const period = nextAvailableHour >= 12 ? 'PM' : 'AM';
       
+      const conflictReason = (() => {
+        if (slotStartMinutes <= appStartMinutes && slotEndMinutes >= appEndMinutes) {
+          return "completely overlaps with";
+        } else if (slotStartMinutes < appStartMinutes && slotEndMinutes > appStartMinutes) {
+          return "starts before and overlaps with";
+        } else if (slotStartMinutes >= appStartMinutes && slotStartMinutes < appEndMinutes) {
+          return "starts during";
+        } else if (slotStartMinutes >= appEndMinutes && slotStartMinutes < bufferEndMinutes) {
+          return "starts during buffer period after";
+        } else if (slotEndMinutes > appEndMinutes && slotEndMinutes <= bufferEndMinutes) {
+          return "ends during buffer period after";
+        }
+        return "conflicts with";
+      })();
+      
       return {
         hasConflict: true,
-        conflictWith: existingApp.service_type || 'appointment',
-        nextAvailableTime: `${displayHour}:${nextAvailableMinute.toString().padStart(2, '0')} ${period}`
+        conflictWith: appointment.service_type || 'appointment',
+        nextAvailableTime: `${displayHour}:${nextAvailableMinute.toString().padStart(2, '0')} ${period}`,
+        message: `Time slot ${conflictReason} an existing ${appointment.service_type || 'appointment'}. The next available time is ${nextAvailableHour}:${nextAvailableMinute.toString().padStart(2, '0')} ${period}`
       };
     }
   }
@@ -140,7 +209,7 @@ export const appointmentService = {
         .from('appointments')
         .select(`
           *,
-          services:service_id(service_name, price, duration_minutes),
+          services:service_id(service_name, price, duration_minutes, allow_concurrent),
           users:created_by(first_name, last_name, email),
           appointment_products:appointment_products(
             *,
@@ -181,7 +250,7 @@ export const appointmentService = {
             *,
             products:product_id(product_name, description, category)
           ),
-          services:service_id(service_name, price, duration_minutes),
+          services:service_id(service_name, price, duration_minutes, allow_concurrent),
           users:created_by(first_name, last_name)
         `)
         .eq('appointment_id', appointmentId)
@@ -215,7 +284,7 @@ export const appointmentService = {
         .from('appointments')
         .select(`
           *,
-          services:service_id(service_name, price, duration_minutes),
+          services:service_id(service_name, price, duration_minutes, allow_concurrent),
           appointment_products:appointment_products(
             *,
             products:product_id(product_name)
@@ -243,6 +312,7 @@ export const appointmentService = {
     }
   },
 
+  // UPDATED: validateAppointment with allow_concurrent support
   async validateAppointment(appointmentData, serviceId) {
     try {
       if (!validateDateInAdvance(appointmentData.date)) {
@@ -292,16 +362,20 @@ export const appointmentService = {
         .in('status', ['pending', 'confirmed'])
         .order('appointment_time', { ascending: true });
 
+      // Pass allow_concurrent flag to conflict check
       const conflictCheck = checkTimeConflicts(
         dayAppointments, 
         appointmentStartMinutes, 
-        appointmentEndMinutes
+        appointmentEndMinutes,
+        60,
+        service.allow_concurrent,
+        appointmentData.service_type
       );
 
-      if (conflictCheck.hasConflict) {
+      if (!service.allow_concurrent && conflictCheck.hasConflict) {
         return {
           success: false,
-          error: `Time slot conflicts with an existing ${conflictCheck.conflictWith}. The next available time is ${conflictCheck.nextAvailableTime}.`
+          error: conflictCheck.message || `Time slot conflicts with an existing ${conflictCheck.conflictWith}. The next available time is ${conflictCheck.nextAvailableTime}.`
         };
       }
 
@@ -330,13 +404,15 @@ export const appointmentService = {
           const dayConflictCheck = checkTimeConflicts(
             dayConflicts,
             appointmentStartMinutes,
-            appointmentEndMinutes
+            appointmentEndMinutes,
+            60,
+            service.allow_concurrent
           );
           
-          if (dayConflictCheck.hasConflict) {
+          if (!service.allow_concurrent && dayConflictCheck.hasConflict) {
             return {
               success: false,
-              error: `Day ${i + 1} of this multi-day service conflicts with an existing appointment at ${dayConflictCheck.nextAvailableTime}.`
+              error: dayConflictCheck.message || `Day ${i + 1} of this multi-day service conflicts with an existing appointment at ${dayConflictCheck.nextAvailableTime}.`
             };
           }
         }
@@ -359,6 +435,7 @@ export const appointmentService = {
       let serviceId = null;
       let servicePrice = 0;
       let serviceDuration = 60;
+      let serviceAllowConcurrent = false;
       let predefinedRequirements = [];
       
       if (appointmentData.service_type) {
@@ -368,8 +445,8 @@ export const appointmentService = {
             service_id, 
             price,
             duration_minutes,
-            allowed_days,
             allow_concurrent,
+            allowed_days,
             requires_multiple_days,
             consecutive_days,
             requirements:requirements(
@@ -387,6 +464,7 @@ export const appointmentService = {
         serviceId = service.service_id;
         servicePrice = service.price || 0;
         serviceDuration = service.duration_minutes || 60;
+        serviceAllowConcurrent = service.allow_concurrent || false;
         
         if (service.requirements?.length > 0) {
           predefinedRequirements = service.requirements.map(req => ({
@@ -412,6 +490,7 @@ export const appointmentService = {
       const changeAmount = Math.max(0, amountPaid - servicePrice);
       const receiptNumber = generateReceiptNumber();
 
+      // REMOVE is_anonymous from the payload
       const appointmentPayload = {
         appointment_date: appointmentData.date,
         appointment_time: appointmentData.time,
@@ -431,6 +510,7 @@ export const appointmentService = {
         payment_status: 'paid',
         offering_total: 0,
         service_duration: serviceDuration
+        // REMOVED: is_anonymous: appointmentData.is_anonymous || false,
       };
 
       console.log('📋 Appointment payload:', appointmentPayload);
@@ -591,7 +671,7 @@ export const appointmentService = {
             *,
             products:product_id(product_name, description)
           ),
-          services:service_id(service_name, price, duration_minutes),
+          services:service_id(service_name, price, duration_minutes, allow_concurrent),
           users:created_by(first_name, last_name, email)
         `)
         .eq('appointment_id', appointmentId)
@@ -603,6 +683,15 @@ export const appointmentService = {
           'fetch appointment for archiving'
         )
       }
+
+      // Helper function to detect anonymous appointments
+      const isAnonymousAppointment = (app) => {
+        return (
+          app.customer_first_name === 'Anonymous' && 
+          app.customer_last_name === 'Customer' && 
+          app.customer_email === 'anonymous@example.com'
+        );
+      };
 
       const totalPayments = appointment.payments?.reduce(
         (sum, payment) => sum + (parseFloat(payment.amount) || 0), 
@@ -638,6 +727,8 @@ export const appointmentService = {
           customer_last_name: appointment.customer_last_name,
           customer_email: appointment.customer_email,
           customer_phone: appointment.customer_phone,
+          // Use detection instead of database field
+          is_anonymous: isAnonymousAppointment(appointment),
           payment_amount: appointment.payment_amount,
           amount_paid: appointment.amount_paid,
           change_amount: appointment.change_amount,
@@ -735,11 +826,12 @@ export const appointmentService = {
     }
   },
 
+  // UPDATED: checkAppointmentAvailability with allow_concurrent support
   async checkAppointmentAvailability(date, time, serviceId, appointmentId = null) {
     try {
       const { data: service } = await supabase
         .from('services')
-        .select('duration_minutes, service_name')
+        .select('duration_minutes, service_name, allow_concurrent')
         .eq('service_id', serviceId)
         .single();
 
@@ -766,22 +858,27 @@ export const appointmentService = {
       const conflictCheck = checkTimeConflicts(
         dayAppointments, 
         appointmentStartMinutes, 
-        appointmentEndMinutes
+        appointmentEndMinutes,
+        60,
+        service.allow_concurrent,
+        service.service_name
       );
 
-      if (conflictCheck.hasConflict) {
+      if (!service.allow_concurrent && conflictCheck.hasConflict) {
         return {
           success: false,
           available: false,
           conflictWith: conflictCheck.conflictWith,
-          nextAvailableTime: conflictCheck.nextAvailableTime
+          nextAvailableTime: conflictCheck.nextAvailableTime,
+          message: conflictCheck.message
         };
       }
 
       return {
         success: true,
         available: true,
-        serviceDuration: service.duration_minutes
+        serviceDuration: service.duration_minutes,
+        allowConcurrent: service.allow_concurrent
       };
     } catch (error) {
       return handleSupabaseError(error, 'check appointment availability');
@@ -813,50 +910,20 @@ export const appointmentService = {
 
       console.log(`📊 Found ${appointments?.length || 0} paid appointments`);
 
-      const { data: standalonePurchases } = await supabase
-        .from('standalone_purchases')
-        .select('*')
-        .eq('purchase_date', reportDate)
-        .order('created_at', { ascending: true });
-
-      const totalServicePayments = appointments?.reduce(
-        (sum, app) => sum + (app.payment_amount || 0), 
-        0
-      ) || 0;
-      const totalOfferings = appointments?.reduce(
-        (sum, app) => calculateOfferingTotal(app.appointment_products), 
-        0
-      ) || 0;
-      const totalStandaloneOfferingsAmount = standalonePurchases?.reduce(
-        (sum, p) => sum + (p.total_amount || 0), 
-        0
-      ) || 0;
-      const totalPayments = appointments?.reduce(
-        (sum, app) => sum + (app.amount_paid || 0), 
-        0
-      ) || 0;
-      const totalChange = appointments?.reduce(
-        (sum, app) => sum + (app.change_amount || 0), 
-        0
-      ) || 0;
-
-      const totals = {
-        totalAppointments: appointments?.length || 0,
-        totalStandaloneOfferings: standalonePurchases?.length || 0,
-        totalServicePayments,
-        totalOfferings,
-        totalStandaloneOfferingsAmount,
-        totalPayments,
-        totalChange,
-        netRevenue: totalServicePayments - totalChange,
-        totalOfferingsRevenue: totalOfferings + totalStandaloneOfferingsAmount
+      // Add a helper function to detect anonymous appointments
+      const isAnonymousAppointment = (app) => {
+        return (
+          app.customer_first_name === 'Anonymous' && 
+          app.customer_last_name === 'Customer' && 
+          app.customer_email === 'anonymous@example.com'
+        );
       };
 
       const formattedAppointments = appointments?.map(app => ({
         ...app,
         date: app.appointment_date,
         time: app.appointment_time,
-        customer_name: `${app.customer_first_name} ${app.customer_last_name}`,
+        customer_name: isAnonymousAppointment(app) ? 'Anonymous Customer' : `${app.customer_first_name} ${app.customer_last_name}`,
         service_name: app.services?.service_name || app.service_type,
         offering_items: app.appointment_products?.map(item => ({
           name: item.products?.product_name || 'Unknown',
@@ -929,7 +996,7 @@ export const appointmentService = {
             *,
             products:product_id(product_name, description)
           ),
-          services:service_id(service_name, price),
+          services:service_id(service_name, price, allow_concurrent),
           users:created_by(first_name, last_name, email)
         `)
         .eq('appointment_id', appointmentId)
@@ -994,12 +1061,23 @@ export const appointmentService = {
         return handleSupabaseError(error, 'fetch appointment stats')
       }
 
+      // Helper function to detect anonymous appointments
+      const isAnonymousAppointment = (app) => {
+        return (
+          app.customer_first_name === 'Anonymous' && 
+          app.customer_last_name === 'Customer' && 
+          app.customer_email === 'anonymous@example.com'
+        );
+      };
+
+      const anonymousCount = appointments?.filter(app => isAnonymousAppointment(app)).length || 0;
       const offeringTotals = appointments?.reduce((sum, app) => {
         return sum + calculateOfferingTotal(app.appointment_products);
       }, 0) || 0;
 
       const stats = {
         total_appointments: appointments?.length || 0,
+        anonymous_appointments: anonymousCount,
         pending_count: appointments?.filter(a => a.status === 'pending').length || 0,
         confirmed_count: appointments?.filter(a => a.status === 'confirmed').length || 0,
         completed_count: appointments?.filter(a => a.status === 'completed').length || 0,
@@ -1114,7 +1192,7 @@ export const appointmentService = {
         .from('appointments')
         .select(`
           *,
-          services:service_id(service_name),
+          services:service_id(service_name, allow_concurrent),
           users:created_by(first_name, last_name),
           appointment_products:appointment_products(
             *,
@@ -1148,7 +1226,7 @@ export const appointmentService = {
         .from('appointments')
         .select(`
           *,
-          services:service_id(service_name, price),
+          services:service_id(service_name, price, allow_concurrent),
           appointment_products:appointment_products(
             *,
             products:product_id(product_name, description)
@@ -1161,6 +1239,16 @@ export const appointmentService = {
         return handleSupabaseError(error, 'fetch appointment summary');
       }
 
+      // Helper function to detect anonymous appointments
+      const isAnonymousAppointment = (app) => {
+        return (
+          app.customer_first_name === 'Anonymous' && 
+          app.customer_last_name === 'Customer' && 
+          app.customer_email === 'anonymous@example.com'
+        );
+      };
+
+      const isAnonymous = isAnonymousAppointment(data);
       const serviceTotal = data.services?.price || 0;
       const offeringTotal = calculateOfferingTotal(data.appointment_products);
       const grandTotal = serviceTotal + offeringTotal;
@@ -1170,6 +1258,8 @@ export const appointmentService = {
         service_name: data.services?.service_name || data.service_type,
         service_price: serviceTotal,
         service_duration: data.service_duration || 60,
+        allow_concurrent: data.services?.allow_concurrent || false,
+        is_anonymous: isAnonymous,
         offering_items: data.appointment_products?.map(item => ({
           name: item.products?.product_name || 'Unknown',
           description: item.products?.description || '',
@@ -1182,7 +1272,7 @@ export const appointmentService = {
         amount_paid: data.amount_paid || 0,
         change_amount: data.change_amount || 0,
         receipt_number: data.receipt_number,
-        customer_name: `${data.customer_first_name} ${data.customer_last_name}`
+        customer_name: isAnonymous ? '👤 Anonymous Customer' : `${data.customer_first_name} ${data.customer_last_name}`
       };
 
       return { success: true, data: summary };

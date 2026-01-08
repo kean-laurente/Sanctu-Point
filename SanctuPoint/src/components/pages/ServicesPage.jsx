@@ -14,7 +14,7 @@ const ServicesPage = () => {
     description: '',
     price: '',
     duration_minutes: 60,
-    allowed_days: [0, 1, 2, 3, 4, 5, 6], // Sunday=0, Monday=1, etc.
+    allowed_days: [0, 1, 2, 3, 4, 5, 6],
     consecutive_days: 1,
     allow_concurrent: false,
     requires_multiple_days: false,
@@ -211,7 +211,11 @@ const ServicesPage = () => {
         duration_minutes: parseInt(formData.duration_minutes) || 60,
         consecutive_days: formData.requires_multiple_days ? parseInt(formData.consecutive_days) || 1 : 1,
         allowed_days: formData.allowed_days,
-        requirements: filteredRequirements
+        allow_concurrent: formData.allow_concurrent || false,
+        requirements: filteredRequirements.map(req => ({
+          requirement_details: req.details,
+          is_required: req.isRequired
+        }))
       }
 
       let result
@@ -440,7 +444,6 @@ const ServicesPage = () => {
                 </div>
               </div>
 
-              {/* Scheduling Constraints Section */}
               <div className="form-section scheduling-section">
                 <h4>Scheduling Constraints</h4>
                 
@@ -532,8 +535,8 @@ const ServicesPage = () => {
                       Allow concurrent appointments
                     </label>
                     <small className="hint">
-                      If checked, multiple appointments for this service can overlap.
-                      Leave unchecked to prevent scheduling conflicts.
+                      If checked, multiple appointments for this service can be scheduled at the same time.
+                      Leave unchecked to prevent scheduling conflicts (recommended for most services).
                     </small>
                   </div>
                 </div>
@@ -678,9 +681,9 @@ const ServicesPage = () => {
                 </span>
               </div>
               <div className="summary-card">
-                <span className="summary-label">Free Services</span>
+                <span className="summary-label">Concurrent Allowed</span>
                 <span className="summary-value">
-                  {services.filter(s => !s.price || s.price === 0).length}
+                  {services.filter(s => s.allow_concurrent).length}
                 </span>
               </div>
             </div>
@@ -698,6 +701,11 @@ const ServicesPage = () => {
                         ⏱️ {formatDuration(service.duration_minutes)}
                       </span>
                       <span className="service-price">{formatPrice(service.price)}</span>
+                      {service.allow_concurrent && (
+                        <span className="concurrent-badge">
+                          🔀 Concurrent
+                        </span>
+                      )}
                     </div>
                   </div>
                   
@@ -762,6 +770,24 @@ const ServicesPage = () => {
           </>
         )}
       </div>
+
+      <style jsx>{`
+        /* Styles remain the same as before, just add the concurrent-badge style */
+        .concurrent-badge {
+          padding: 6px 12px;
+          border-radius: 20px;
+          background: linear-gradient(135deg, #805ad5 0%, #6b46c1 100%);
+          color: white;
+          font-size: 12px;
+          font-weight: bold;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-left: 8px;
+        }
+        
+        /* Rest of the styles remain the same */
+      `}</style>
+  
 
       <style jsx>{`
         .page-container {

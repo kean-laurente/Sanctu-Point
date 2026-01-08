@@ -15,7 +15,6 @@ export const archivedAppointmentsService = {
 
       console.log('🔄 Fetching archived appointments...')
       
-      // UPDATED: Use archived_appointments table instead of appointment_history
       const { data, error } = await supabase
         .from('archived_appointments')
         .select('*')
@@ -32,8 +31,8 @@ export const archivedAppointmentsService = {
       const transformedData = data?.map(item => ({
         archived_id: item.archived_id,
         original_appointment_id: item.original_appointment_id,
-        date: item.appointment_date, // UPDATED: Use appointment_date
-        time: item.appointment_time, // UPDATED: Use appointment_time
+        date: item.appointment_date,
+        time: item.appointment_time,
         service_type: item.service_type,
         status: item.status,
         created_by: item.created_by,
@@ -67,7 +66,6 @@ export const archivedAppointmentsService = {
 
       console.log('🔄 Restoring archived appointment:', archivedId)
       
-      // UPDATED: Get from archived_appointments table
       const { data: archivedRecord, error: fetchError } = await supabase
         .from('archived_appointments')
         .select('*')
@@ -87,8 +85,8 @@ export const archivedAppointmentsService = {
 
       // Create new appointment from archived data
       const appointmentPayload = {
-        appointment_date: archivedRecord.appointment_date, // UPDATED
-        appointment_time: archivedRecord.appointment_time, // UPDATED
+        appointment_date: archivedRecord.appointment_date,
+        appointment_time: archivedRecord.appointment_time,
         service_type: archivedRecord.service_type,
         status: 'pending', // Reset to pending when restoring
         created_by: archivedRecord.created_by,
@@ -169,7 +167,6 @@ export const archivedAppointmentsService = {
         return { success: false, error: 'Only administrators and staff can delete archived appointments' }
       }
 
-      // UPDATED: Delete from archived_appointments table
       const { error } = await supabase
         .from('archived_appointments')
         .delete()
@@ -195,7 +192,6 @@ export const archivedAppointmentsService = {
         return { success: false, error: 'Only administrators and staff can view archived appointment stats', data: null }
       }
 
-      // UPDATED: Use archived_appointments table
       const { data, error } = await supabase
         .from('archived_appointments')
         .select('status')
@@ -220,7 +216,6 @@ export const archivedAppointmentsService = {
     }
   },
 
-  // NEW: Function to bulk archive completed appointments
   async archiveCompletedAppointments(currentUser) {
     try {
       // Allow both admin and staff to bulk archive
@@ -230,8 +225,6 @@ export const archivedAppointmentsService = {
 
       console.log('🔄 Archiving completed appointments...')
       
-      // Call the database function (if available) or implement client-side logic
-      // For now, we'll show a message that this needs to be done via database
       return { 
         success: true, 
         message: 'Please run "SELECT archive_completed_appointments();" in your SQL editor to archive all completed appointments.' 
@@ -242,7 +235,6 @@ export const archivedAppointmentsService = {
     }
   },
 
-  // NEW: Get detailed archived appointment
   async getArchivedAppointmentDetails(archivedId, currentUser) {
     try {
       // Allow both admin and staff to view details
@@ -274,4 +266,4 @@ export const archivedAppointmentsService = {
   }
 }
 
-export default archivedAppointmentsService
+export default archivedAppointmentsService;

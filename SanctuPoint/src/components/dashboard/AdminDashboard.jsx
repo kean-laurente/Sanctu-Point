@@ -164,29 +164,7 @@ const AdminDashboard = ({ user, onLogout, onStaffUpdate }) => {
             </div>
 
             {/* Test Tools (Development Only) */}
-            <div className="test-tools mt-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <h3 className="text-sm font-semibold mb-2 text-yellow-800">Development Tools</h3>
-              <div className="flex gap-2">
-                <button 
-                  onClick={handlePrintTestReceipt}
-                  className="px-3 py-1 text-sm bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200"
-                >
-                  Test Receipt Printing
-                </button>
-                <button 
-                  onClick={() => setCurrentPage('services')}
-                  className="px-3 py-1 text-sm bg-blue-100 text-blue-800 rounded hover:bg-blue-200"
-                >
-                  Manage Services
-                </button>
-                <button 
-                  onClick={() => setCurrentPage('donation')}
-                  className="px-3 py-1 text-sm bg-green-100 text-green-800 rounded hover:bg-green-200"
-                >
-                  View Donations
-                </button>
-              </div>
-            </div>
+            
           </div>
         );
       

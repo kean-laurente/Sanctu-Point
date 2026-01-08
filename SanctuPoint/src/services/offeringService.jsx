@@ -23,7 +23,7 @@ const handleSupabaseError = (error, operation) => {
 }
 
 export const offeringService = {
-  // Process offering only (no appointment)
+  // Process standalone offering (no appointment)
   async processOfferingOnly(offeringData, currentUser) {
     try {
       console.log('🔄 Processing offering only...');
@@ -48,9 +48,9 @@ export const offeringService = {
 
       // Create purchase data
       const purchaseData = {
-        customer_name: offeringData.customer_name,
-        customer_email: offeringData.customer_email,
-        customer_phone: offeringData.customer_phone,
+        customer_name: offeringData.customer_name || 'Anonymous Donor', // Default value
+        customer_email: offeringData.customer_email || '',
+        customer_phone: offeringData.customer_phone || '',
         amount_paid: offeringData.amount_paid,
         products: validOfferingItems.map(item => ({
           product_id: item.product_id,
