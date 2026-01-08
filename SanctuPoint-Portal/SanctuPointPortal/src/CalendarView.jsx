@@ -38,9 +38,10 @@ const CalendarView = ({ events }) => {
 
   // Get today's date for comparison
   const today = new Date()
-  const todayYear = today.getFullYear()
-  const todayMonth = today.getMonth()
-  const todayDay = today.getDate()
+  // Set to start of day for accurate comparison
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  const tomorrowStart = new Date(todayStart)
+  tomorrowStart.setDate(tomorrowStart.getDate() + 1)
 
   /* ---------------- CALENDAR DAYS ---------------- */
   const calendarDays = useMemo(() => {
@@ -86,9 +87,12 @@ const CalendarView = ({ events }) => {
     // Parse selected date for comparison
     const [year, month, day] = selectedDate.split('-').map(Number)
     const selectedDateObj = new Date(year, month - 1, day)
+    const selectedDateStart = new Date(year, month - 1, day)
     
-    // Check if selected date is in the past
-    const isPastDate = selectedDateObj < today
+    // Check if selected date is today or in the past
+    const isPastDate = selectedDateObj < todayStart
+    const isToday = selectedDateStart.getTime() === todayStart.getTime()
+    const isFutureDate = selectedDateStart > todayStart
     
     // Sort events by time for easier gap calculation
     const sortedEvents = [...selectedEvents].sort((a, b) => {
@@ -107,7 +111,7 @@ const CalendarView = ({ events }) => {
 
       let status = 'available'
       let reason = null
-      let isBookable = true
+      let isBookable = false // Default to false, will be updated based on rules
       
       if (bookedEvent) {
         status = 'taken'
@@ -133,25 +137,35 @@ const CalendarView = ({ events }) => {
           if (nearestEvent) {
             const eventTime = nearestEvent.time || nearestEvent.formatted_time || '00:00 AM'
             status = 'blocked'
-            reason = `1-hour gap required (adjacent to ${eventTime})`
+            reason = `1-hour gap required`
             isBookable = false
           }
-        } else if (isPastDate) {
-          // Check if it's today and past time
-          const isToday = year === todayYear && month === todayMonth + 1 && day === todayDay
+        } else {
+          // Determine bookability based on date rules
           if (isToday) {
-            // For today, check if the time slot has passed
-            const currentHour = today.getHours()
-            if (slot.hour24 <= currentHour) {
-              status = 'past'
-              reason = 'This time slot has passed'
-              isBookable = false
-            }
-          } else {
-            // For past dates, all slots are view-only
+            // Today is view-only (1-day advance booking)
+            status = 'past'
+            reason = 'View only - 1-day advance booking required'
+            isBookable = false
+          } else if (isPastDate) {
+            // Past dates are view-only
             status = 'past'
             reason = 'View only - cannot book past dates'
             isBookable = false
+          } else if (isFutureDate) {
+            // Future dates (tomorrow onwards) can be booked
+            status = 'available'
+            reason = 'Book this slot'
+            isBookable = true
+            
+            // Double-check if it's exactly tomorrow (for additional checks)
+            if (selectedDateStart.getTime() === tomorrowStart.getTime()) {
+              // For tomorrow, check if the time slot has passed for today
+              const currentHour = today.getHours()
+              if (slot.hour24 <= currentHour) {
+                // This would be for edge cases, but should already be handled by date logic
+              }
+            }
           }
         }
       }
@@ -165,14 +179,29 @@ const CalendarView = ({ events }) => {
         isBookable: isBookable
       }
     })
-  }, [timeSlots, selectedEvents, selectedDate, today, todayYear, todayMonth, todayDay])
+  }, [timeSlots, selectedEvents, selectedDate, todayStart, tomorrowStart])
 
-  // Helper function to check if a date is in the past
-  const isDateInPast = (day) => {
+  // Helper function to check if a date is today or in the past
+  const isDateTodayOrPast = (day) => {
     const year = currentDate.getFullYear()
     const month = currentDate.getMonth()
     const dateObj = new Date(year, month, day)
-    return dateObj < today
+    return dateObj <= todayStart
+  }
+
+  // Helper function to get date display status
+  const getDateStatus = (day) => {
+    const year = currentDate.getFullYear()
+    const month = currentDate.getMonth()
+    const dateObj = new Date(year, month, day)
+    
+    if (dateObj < todayStart) {
+      return 'past'
+    } else if (dateObj.getTime() === todayStart.getTime()) {
+      return 'today'
+    } else {
+      return 'future'
+    }
   }
 
   return (
@@ -198,16 +227,20 @@ const CalendarView = ({ events }) => {
             const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`
             const hasEvents = eventsByDate[dateStr]
             const isSelected = selectedDate === dateStr
-            const isPast = isDateInPast(day)
+            const dateStatus = getDateStatus(day)
+            const isTodayOrPast = dateStatus === 'today' || dateStatus === 'past'
 
             return (
               <div
                 key={i}
-                className={`calendar-day ${hasEvents ? 'has-event' : ''} ${isSelected ? 'selected' : ''} ${isPast ? 'past-date' : ''}`}
+                className={`calendar-day ${hasEvents ? 'has-event' : ''} ${isSelected ? 'selected' : ''} ${isTodayOrPast ? 'past-date' : ''} ${dateStatus === 'today' ? 'today-date' : ''}`}
                 onClick={() => setSelectedDate(dateStr)}
-                title={isPast ? 'View only - cannot book past dates' : ''}
+                title={dateStatus === 'today' ? 'View only - 1-day advance booking required' : 
+                       dateStatus === 'past' ? 'View only - cannot book past dates' : 
+                       'Available for booking'}
               >
                 <span>{day}</span>
+                {dateStatus === 'today' && <div className="today-indicator" />}
                 {hasEvents && <div className="event-dot" />}
               </div>
             )
@@ -221,7 +254,7 @@ const CalendarView = ({ events }) => {
           <div className="side-placeholder">
             <h3>Select a date</h3>
             <p>Click a day to view available and taken time slots.</p>
-            <p className="past-note">You can view past dates but cannot book them.</p>
+            <p className="past-note">1-day advance booking required. Today and past dates are view-only.</p>
           </div>
         ) : (
           <>
@@ -233,6 +266,36 @@ const CalendarView = ({ events }) => {
                 year: 'numeric'
               })}
             </h3>
+
+            {/* Date Status Banner */}
+            {(() => {
+              const [year, month, day] = selectedDate.split('-').map(Number)
+              const selectedDateStart = new Date(year, month - 1, day)
+              const isToday = selectedDateStart.getTime() === todayStart.getTime()
+              const isPast = selectedDateStart < todayStart
+              const isFuture = selectedDateStart > todayStart
+              
+              // if (isToday) {
+              //   return (
+              //     <div className="date-status-banner today-banner">
+              //       ⚠️ Today - View only (1-day advance booking required)
+              //     </div>
+              //   )
+              // } else if (isPast) {
+              //   return (
+              //     <div className="date-status-banner past-banner">
+              //       📅 Past date - View only
+              //     </div>
+              //   )
+              // } else if (isFuture) {
+              //   return (
+              //     <div className="date-status-banner future-banner">
+              //       ✅ Available for booking
+              //     </div>
+              //   )
+              // }
+              return null
+            })()}
 
             <div className="timeslot-list">
               {slotsWithStatus.map(slot => (
@@ -251,12 +314,12 @@ const CalendarView = ({ events }) => {
                   ) : slot.status === 'blocked' ? (
                     <div className="timeslot-info blocked">
                       <strong>Unavailable</strong>
-                      <span> </span>
+                      <span>{slot.reason}</span>
                     </div>
                   ) : slot.status === 'past' ? (
                     <div className="timeslot-info past">
-                      <strong> </strong>
-                      <span> </span>
+                      {/* <strong>View only</strong>
+                      <span>{slot.reason}</span> */}
                     </div>
                   ) : (
                     <div className="timeslot-info available">
@@ -280,11 +343,11 @@ const CalendarView = ({ events }) => {
               </div>
               <div className="legend-item">
                 <div className="legend-color blocked"></div>
-                <span>1-hour gap required</span>
+                <span>1-hour interval</span>
               </div>
               <div className="legend-item">
                 <div className="legend-color past"></div>
-                <span>Past/View Only</span>
+                <span>Past/Today (View Only)</span>
               </div>
             </div>
           </>

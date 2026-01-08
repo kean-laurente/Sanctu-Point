@@ -563,7 +563,9 @@ const BookAppointmentPage = () => {
   }
 
   const timeSlots = generateTimeSlots()
-  const today = new Date().toISOString().split('T')[0]
+  const today = new Date()
+    today.setDate(today.getDate() + 1) 
+    const todayString = today.toISOString().split('T')[0]
   const maxDate = new Date()
   maxDate.setMonth(maxDate.getMonth() + 6)
   const maxDateString = maxDate.toISOString().split('T')[0]
@@ -1251,6 +1253,32 @@ const BookAppointmentPage = () => {
                 <p>Select your preferred date and time</p>
               </div>
               
+              <div className="form-group">
+                <label htmlFor="service_type">Service Type *</label>
+                <select
+                  id="service_type"
+                  name="service_type"
+                  value={formData.service_type}
+                  onChange={handleServiceChange}
+                  required
+                  disabled={loading}
+                >
+                  <option value="">Select a service</option>
+                  {services.map(service => (
+                    <option key={service.service_id} value={service.service_name}>
+                      {service.service_name} {service.price > 0 ? `(₱${service.price.toFixed(2)})` : '(Free)'}
+                      {service.has_requirements && ' 📋'}
+                      {service.requires_multiple_days && ` 🔄 ${service.consecutive_days} days`}
+                      {service.duration_minutes && ` ⏱️ ${formatDuration(service.duration_minutes)}`}
+                      {service.allow_concurrent && ' 🔀 Concurrent'}
+                    </option>
+                  ))}
+                </select>
+                {/* <small className="input-hint">
+                  📋 = Has requirements | 🔄 = Multi-day service | ⏱️ = Duration | 🔀 = Concurrent allowed
+                </small> */}
+              </div>
+
               <div className="form-row">
                 <div className="form-group">
                   <label htmlFor="date">Date *</label>
@@ -1260,16 +1288,16 @@ const BookAppointmentPage = () => {
                     name="date"
                     value={formData.date}
                     onChange={handleInputChange}
-                    min={today}
+                    min={todayString}
                     max={maxDateString}
                     required
                     disabled={loading || !selectedService}
                   />
-                  <small className="input-hint">
+                  {/* <small className="input-hint">
                     {selectedService 
                       ? ''
                       : 'Select a service first'}
-                  </small>
+                  </small> */}
                 </div>
 
                 <div className="form-group">
@@ -1330,31 +1358,7 @@ const BookAppointmentPage = () => {
                 </div>
               </div>
 
-              <div className="form-group">
-                <label htmlFor="service_type">Service Type *</label>
-                <select
-                  id="service_type"
-                  name="service_type"
-                  value={formData.service_type}
-                  onChange={handleServiceChange}
-                  required
-                  disabled={loading}
-                >
-                  <option value="">Select a service</option>
-                  {services.map(service => (
-                    <option key={service.service_id} value={service.service_name}>
-                      {service.service_name} {service.price > 0 ? `(₱${service.price.toFixed(2)})` : '(Free)'}
-                      {service.has_requirements && ' 📋'}
-                      {service.requires_multiple_days && ` 🔄 ${service.consecutive_days} days`}
-                      {service.duration_minutes && ` ⏱️ ${formatDuration(service.duration_minutes)}`}
-                      {service.allow_concurrent && ' 🔀 Concurrent'}
-                    </option>
-                  ))}
-                </select>
-                <small className="input-hint">
-                  📋 = Has requirements | 🔄 = Multi-day service | ⏱️ = Duration | 🔀 = Concurrent allowed
-                </small>
-              </div>
+              
             </div>
 
             {selectedService && serviceRequirements.length > 0 && (

@@ -635,3 +635,147 @@
   margin-top: 0.5rem;
   font-style: italic;
 }
+
+.date-status-banner {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.today-banner {
+  background-color: #fff3cd;
+  border: 1px solid #ffeaa7;
+  color: #856404;
+}
+
+.past-banner {
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  color: #6c757d;
+}
+
+.future-banner {
+  background-color: #d4edda;
+  border: 1px solid #c3e6cb;
+  color: #155724;
+}
+
+/* Today indicator for calendar days */
+.calendar-day.today-date {
+  position: relative;
+  background-color: #fff3cd;
+}
+
+.calendar-day.today-date:hover {
+  background-color: #ffeaa7;
+}
+
+.calendar-day.today-date.selected {
+  background-color: #ffd166;
+  border-color: #ffb347;
+}
+
+.calendar-day.today-date .today-indicator {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  background-color: #ff6b6b;
+  border-radius: 50%;
+}
+
+/* Update the past date styling */
+.calendar-day.past-date {
+  background-color: #f8f9fa;
+  color: #adb5bd;
+}
+
+.calendar-day.past-date:hover {
+  background-color: #e9ecef;
+}
+
+.calendar-day.past-date.selected {
+  background-color: #dee2e6;
+  border-color: #ced4da;
+}
+
+.calendar-day.past-date .event-dot {
+  background-color: #adb5bd;
+  opacity: 0.5;
+}
+
+/* Future dates (bookable) */
+.calendar-day:not(.past-date):not(.today-date) {
+  background-color: white;
+}
+
+.calendar-day:not(.past-date):not(.today-date).has-event {
+  background-color: #e8f5e9;
+  border-color: #c8e6c9;
+}
+
+.calendar-day:not(.past-date):not(.today-date).selected {
+  background-color: #e3f2fd;
+  border-color: #2196f3;
+}
+
+/* Update the legend */
+.slot-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #eee;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+}
+
+.legend-color.available {
+  background: #e8f5e9;
+  border: 1px solid #c8e6c9;
+}
+
+.legend-color.taken {
+  background: #ffebee;
+  border: 1px solid #ffcdd2;
+}
+
+.legend-color.blocked {
+  background: #fff3e0;
+  border: 1px solid #ffe0b2;
+}
+
+.legend-color.past {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+}
+
+.legend-item span {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+/* Update placeholder text */
+.side-placeholder .past-note {
+  font-size: 0.9rem;
+  color: #666;
+  margin-top: 0.5rem;
+  font-style: italic;
+  background-color: #f8f9fa;
+  padding: 0.5rem;
+  border-radius: 4px;
+} 

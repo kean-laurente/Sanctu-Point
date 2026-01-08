@@ -464,7 +464,7 @@ const ServicesPage = () => {
                       />
                       <span className="unit">minutes</span>
                     </div>
-                    <small className="hint">How long the service takes (e.g., Funeral Mass: 90 min)</small>
+                    {/* <small className="hint">How long the service takes (e.g., Funeral Mass: 90 min)</small> */}
                   </div>
 
                   <div className="form-group">
@@ -541,7 +541,7 @@ const ServicesPage = () => {
                   </div>
                 </div>
 
-                <div className="duration-presets">
+                {/* <div className="duration-presets">
                   <p className="presets-label">Quick presets from your list:</p>
                   <div className="preset-buttons">
                     <button type="button" onClick={() => setFormData(prev => ({...prev, duration_minutes: 90}))} className="preset-btn">
@@ -563,7 +563,7 @@ const ServicesPage = () => {
                       Pre-Cana (8h × 2d)
                     </button>
                   </div>
-                </div>
+                </div> */}
               </div>
 
               <div className="form-section requirements-section">
@@ -663,7 +663,7 @@ const ServicesPage = () => {
           </div>
         ) : (
           <>
-            <div className="services-summary">
+            {/* <div className="services-summary">
               <div className="summary-card">
                 <span className="summary-label">Total Services</span>
                 <span className="summary-value">{services.length}</span>
@@ -686,7 +686,7 @@ const ServicesPage = () => {
                   {services.filter(s => s.allow_concurrent).length}
                 </span>
               </div>
-            </div>
+            </div> */}
 
             <div className="services-grid">
               {services.map(service => (

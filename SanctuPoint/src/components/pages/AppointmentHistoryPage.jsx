@@ -196,10 +196,10 @@ const AppointmentHistoryPage = () => {
             <div className="stat-number" style={{ color: '#28a745' }}>{statusCounts.completed}</div>
             <div className="stat-label">Completed</div>
           </div>
-          <div className="stat-card">
+          {/* <div className="stat-card">
             <div className="stat-number" style={{ color: '#dc3545' }}>{statusCounts.cancelled}</div>
             <div className="stat-label">Cancelled</div>
-          </div>
+          </div> */}
           <div className="stat-card">
             <div className="stat-number" style={{ color: '#6c757d' }}>{statusCounts.expired + statusCounts.noshow}</div>
             <div className="stat-label">Other</div>
@@ -294,7 +294,7 @@ const AppointmentHistoryPage = () => {
                   </div>
                 </div>
 
-                <div className="appointment-actions">
+                {/* <div className="appointment-actions">
                   {currentUser && (currentUser.role === 'admin' || currentUser.role === 'staff') && (
                     <button 
                       onClick={() => handleRestoreAppointment(appointment.archived_id)}
@@ -303,7 +303,7 @@ const AppointmentHistoryPage = () => {
                       Restore to Active
                     </button>
                   )}
-                </div>
+                </div> */}
               </div>
             ))}
           </div>
@@ -380,7 +380,7 @@ const AppointmentHistoryPage = () => {
         }
 
         .stat-label {
-          color: #6c757d;
+          color: #0e0d0dff;
           font-size: 14px;
           text-transform: uppercase;
           letter-spacing: 0.5px;

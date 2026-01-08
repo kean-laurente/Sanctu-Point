@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { appointmentService } from '../../services/appointmentService'
 import { authService } from '../../auth/authService'
 import { printReceipt } from '../../utils/receiptUtils'
+import CalendarView from './CalendarView' // We'll create this component
 
 const AppointmentSchedulePage = () => {
   const [appointments, setAppointments] = useState([])
@@ -12,6 +13,7 @@ const AppointmentSchedulePage = () => {
   const [selectedAppointment, setSelectedAppointment] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
+  const [viewMode, setViewMode] = useState('list') // 'list' or 'calendar'
 
   useEffect(() => {
     loadCurrentUser()
@@ -190,6 +192,26 @@ const AppointmentSchedulePage = () => {
     return counts
   }
 
+  // Format appointments for calendar view
+  const getCalendarEvents = () => {
+    return appointments.map(appointment => ({
+      id: appointment.appointment_id,
+      date: appointment.date,
+      time: appointment.time,
+      title: appointment.service_type,
+      customer_name: `${appointment.customer_first_name} ${appointment.customer_last_name}`,
+      status: appointment.status,
+      payment_status: appointment.payment_status,
+      service_type: appointment.service_type,
+      customer_first_name: appointment.customer_first_name,
+      customer_last_name: appointment.customer_last_name,
+      customer_email: appointment.customer_email,
+      customer_phone: appointment.customer_phone,
+      service_price: appointment.service_price,
+      formatted_time: formatTime(appointment.time)
+    }))
+  }
+
   const statusCounts = getStatusCounts()
 
   return (
@@ -212,57 +234,93 @@ const AppointmentSchedulePage = () => {
           </div>
         )}
 
-        {/* Search and Filter Section */}
-        <div className="filters-section">
-          <div className="search-box">
-            <input
-              type="text"
-              placeholder="Search by name, service, or receipt number..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
-            />
+        {/* View Mode Toggle */}
+        <div className="view-mode-toggle">
+          <div className="toggle-buttons">
+            <button
+              className={`toggle-btn ${viewMode === 'list' ? 'active' : ''}`}
+              onClick={() => setViewMode('list')}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="3" y="4" width="18" height="3" rx="1.5" fill="currentColor"/>
+                <rect x="3" y="10" width="18" height="3" rx="1.5" fill="currentColor"/>
+                <rect x="3" y="16" width="18" height="3" rx="1.5" fill="currentColor"/>
+              </svg>
+              List View
+            </button>
+            <button
+              className={`toggle-btn ${viewMode === 'calendar' ? 'active' : ''}`}
+              onClick={() => setViewMode('calendar')}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="2"/>
+                <path d="M3 9H21" stroke="currentColor" strokeWidth="2"/>
+                <path d="M8 2V6" stroke="currentColor" strokeWidth="2"/>
+                <path d="M16 2V6" stroke="currentColor" strokeWidth="2"/>
+              </svg>
+              Calendar View
+            </button>
           </div>
-          
-          {/* <div className="status-filters">
-            <button 
-              className={`filter-btn ${filterStatus === 'all' ? 'active' : ''}`}
-              onClick={() => setFilterStatus('all')}
-            >
-              All ({statusCounts.all})
-            </button>
-            <button 
-              className={`filter-btn ${filterStatus === 'pending' ? 'active' : ''}`}
-              onClick={() => setFilterStatus('pending')}
-            >
-              Pending ({statusCounts.pending})
-            </button>
-            <button 
-              className={`filter-btn ${filterStatus === 'confirmed' ? 'active' : ''}`}
-              onClick={() => setFilterStatus('confirmed')}
-            >
-              Confirmed ({statusCounts.confirmed})
-            </button>
-            <button 
-              className={`filter-btn ${filterStatus === 'completed' ? 'active' : ''}`}
-              onClick={() => setFilterStatus('completed')}
-            >
-              Completed ({statusCounts.completed})
-            </button>
-            <button 
-              className={`filter-btn ${filterStatus === 'cancelled' ? 'active' : ''}`}
-              onClick={() => setFilterStatus('cancelled')}
-            >
-              Cancelled ({statusCounts.cancelled})
-            </button>
-          </div> */}
         </div>
+
+        {/* Search and Filter Section - Show only in list view */}
+        {viewMode === 'list' && (
+          <div className="filters-section">
+            <div className="search-box">
+              <input
+                type="text"
+                placeholder="Search by name, service, or receipt number..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="search-input"
+              />
+            </div>
+            
+            {/* <div className="status-filters">
+              <button 
+                className={`filter-btn ${filterStatus === 'all' ? 'active' : ''}`}
+                onClick={() => setFilterStatus('all')}
+              >
+                All ({statusCounts.all})
+              </button>
+              <button 
+                className={`filter-btn ${filterStatus === 'pending' ? 'active' : ''}`}
+                onClick={() => setFilterStatus('pending')}
+              >
+                Pending ({statusCounts.pending})
+              </button>
+              <button 
+                className={`filter-btn ${filterStatus === 'confirmed' ? 'active' : ''}`}
+                onClick={() => setFilterStatus('confirmed')}
+              >
+                Confirmed ({statusCounts.confirmed})
+              </button>
+              <button 
+                className={`filter-btn ${filterStatus === 'completed' ? 'active' : ''}`}
+                onClick={() => setFilterStatus('completed')}
+              >
+                Completed ({statusCounts.completed})
+              </button>
+              <button 
+                className={`filter-btn ${filterStatus === 'cancelled' ? 'active' : ''}`}
+                onClick={() => setFilterStatus('cancelled')}
+              >
+                Cancelled ({statusCounts.cancelled})
+              </button>
+            </div> */}
+          </div>
+        )}
 
         {loading ? (
           <div className="loading-state">
             <div className="loading-spinner"></div>
             <p>Loading appointments...</p>
           </div>
+        ) : viewMode === 'calendar' ? (
+          <CalendarView 
+            events={getCalendarEvents()}
+            currentUser={currentUser}
+          />
         ) : filteredAppointments.length === 0 ? (
           <div className="empty-state">
             <h3>No Appointments Scheduled</h3>
@@ -425,56 +483,114 @@ const AppointmentSchedulePage = () => {
       <style jsx>{`
         .page-container {
           padding: 20px;
-          max-width: 1200px;
+          max-width: 1400px;
           margin: 0 auto;
         }
 
         .page-content {
           background: white;
-          border-radius: 8px;
-          padding: 24px;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          border-radius: 12px;
+          padding: 30px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.08);
         }
 
         .schedule-header {
-          margin-bottom: 32px;
+          margin-bottom: 30px;
           text-align: center;
         }
 
         .schedule-header h1 {
-          color: #333;
+          color: #1e293b;
           margin-bottom: 8px;
+          font-size: 32px;
+          font-weight: 700;
         }
 
         .schedule-header p {
-          color: #666;
+          color: #64748b;
           font-size: 16px;
+          max-width: 600px;
+          margin: 0 auto;
+        }
+
+        /* View Mode Toggle */
+        .view-mode-toggle {
+          margin-bottom: 30px;
+          display: flex;
+          justify-content: center;
+        }
+
+        .toggle-buttons {
+          display: inline-flex;
+          background: #f1f5f9;
+          border-radius: 10px;
+          padding: 6px;
+          border: 2px solid #e2e8f0;
+          gap: 4px;
+        }
+
+        .toggle-btn {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 12px 24px;
+          border: none;
+          border-radius: 8px;
+          background: transparent;
+          color: #64748b;
+          cursor: pointer;
+          font-size: 15px;
+          font-weight: 600;
+          transition: all 0.3s ease;
+          white-space: nowrap;
+        }
+
+        .toggle-btn:hover {
+          color: #475569;
+          background: #e2e8f0;
+        }
+
+        .toggle-btn.active {
+          background: white;
+          color: #3b82f6;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .toggle-btn svg {
+          transition: transform 0.3s ease;
+        }
+
+        .toggle-btn:hover svg {
+          transform: scale(1.1);
         }
 
         .message {
-          padding: 12px;
-          border-radius: 4px;
-          margin-bottom: 16px;
+          padding: 16px;
+          border-radius: 10px;
+          margin-bottom: 24px;
+          font-size: 15px;
+          font-weight: 500;
+          border: 2px solid transparent;
         }
 
         .message.error {
-          background: #fee;
-          border: 1px solid #fcc;
-          color: #c33;
+          background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+          border-color: #fca5a5;
+          color: #dc2626;
         }
 
         .message.success {
-          background: #efe;
-          border: 1px solid #cfc;
-          color: #363;
+          background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+          border-color: #86efac;
+          color: #16a34a;
         }
 
         /* Search and Filter Styles */
         .filters-section {
           display: flex;
           flex-direction: column;
-          gap: 16px;
-          margin-bottom: 24px;
+          gap: 20px;
+          margin-bottom: 30px;
         }
 
         .search-box {
@@ -483,61 +599,65 @@ const AppointmentSchedulePage = () => {
 
         .search-input {
           width: 100%;
-          padding: 12px 16px;
-          border: 1px solid #ddd;
-          border-radius: 8px;
-          font-size: 14px;
+          padding: 14px 20px;
           border: 2px solid #e2e8f0;
+          border-radius: 10px;
+          font-size: 15px;
+          transition: all 0.3s;
+          background: #f8fafc;
         }
 
         .search-input:focus {
           outline: none;
-          border-color: #4299e1;
-          box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+          border-color: #3b82f6;
+          background: white;
+          box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
         }
 
         .status-filters {
           display: flex;
-          gap: 8px;
+          gap: 10px;
           flex-wrap: wrap;
         }
 
         .filter-btn {
-          padding: 8px 16px;
+          padding: 10px 20px;
           border: 2px solid #e2e8f0;
-          border-radius: 20px;
+          border-radius: 25px;
           background: white;
-          color: #666;
+          color: #64748b;
           cursor: pointer;
           font-size: 14px;
-          transition: all 0.2s;
-          font-weight: 500;
+          font-weight: 600;
+          transition: all 0.3s;
         }
 
         .filter-btn:hover {
-          border-color: #4299e1;
-          color: #4299e1;
+          border-color: #94a3b8;
+          color: #475569;
+          transform: translateY(-2px);
         }
 
         .filter-btn.active {
-          background: #4299e1;
-          border-color: #4299e1;
+          background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+          border-color: #3b82f6;
           color: white;
+          box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
         }
 
         .loading-state {
           text-align: center;
-          padding: 40px;
+          padding: 80px 40px;
         }
 
         .loading-spinner {
-          border: 4px solid #f3f3f3;
-          border-top: 4px solid #007bff;
+          border: 4px solid #f1f5f9;
+          border-top: 4px solid #3b82f6;
           border-radius: 50%;
-          width: 40px;
-          height: 40px;
+          width: 50px;
+          height: 50px;
           animation: spin 1s linear infinite;
-          margin: 0 auto 16px;
+          margin: 0 auto 20px;
         }
 
         @keyframes spin {
@@ -545,270 +665,377 @@ const AppointmentSchedulePage = () => {
           100% { transform: rotate(360deg); }
         }
 
+        .loading-state p {
+          color: #64748b;
+          font-size: 16px;
+          font-weight: 500;
+        }
+
         .empty-state {
           text-align: center;
-          padding: 60px 40px;
-          color: #666;
+          padding: 80px 40px;
+          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+          border-radius: 12px;
+          border: 3px dashed #e2e8f0;
         }
 
         .empty-state h3 {
-          margin-bottom: 8px;
-          color: #333;
+          color: #475569;
+          margin-bottom: 12px;
+          font-size: 24px;
+          font-weight: 600;
         }
 
-        .empty-state .btn-primary {
-          margin-top: 16px;
-          padding: 12px 24px;
-          background: #4299e1;
+        .empty-state p {
+          color: #64748b;
+          margin-bottom: 24px;
+          font-size: 16px;
+          max-width: 500px;
+          margin-left: auto;
+          margin-right: auto;
+        }
+
+        .btn-primary {
+          padding: 14px 32px;
+          background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
           color: white;
           border: none;
-          border-radius: 6px;
+          border-radius: 10px;
           cursor: pointer;
-          font-size: 14px;
-          font-weight: 500;
-          transition: background-color 0.2s;
+          font-size: 15px;
+          font-weight: 600;
+          transition: all 0.3s;
         }
 
-        .empty-state .btn-primary:hover {
-          background: #3182ce;
+        .btn-primary:hover {
+          background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+          transform: translateY(-2px);
+          box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3);
         }
 
+        /* List View Styles */
         .appointments-list {
           display: grid;
-          gap: 16px;
+          gap: 20px;
         }
 
         .appointment-card {
           border: 2px solid #e2e8f0;
           border-radius: 12px;
-          padding: 24px;
+          padding: 28px;
           background: white;
-          transition: all 0.3s ease;
+          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+          position: relative;
+          overflow: hidden;
+        }
+
+        .appointment-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 4px;
+          background: linear-gradient(90deg, #3b82f6, #8b5cf6, #10b981);
+          opacity: 0;
+          transition: opacity 0.3s;
+        }
+
+        .appointment-card:hover::before {
+          opacity: 1;
         }
 
         .appointment-card:hover {
           border-color: #cbd5e0;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-          transform: translateY(-1px);
+          box-shadow: 0 12px 40px rgba(0,0,0,0.12);
+          transform: translateY(-4px);
         }
 
         .appointment-header {
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
-          margin-bottom: 20px;
-          padding-bottom: 16px;
-          border-bottom: 2px solid #edf2f7;
+          margin-bottom: 24px;
+          padding-bottom: 20px;
+          border-bottom: 2px solid #f1f5f9;
         }
 
         .appointment-header h3 {
           margin: 0;
-          color: #2d3748;
-          font-size: 1.3rem;
-          font-weight: 600;
+          color: #1e293b;
+          font-size: 22px;
+          font-weight: 700;
+          line-height: 1.3;
         }
 
         .status-badges {
           display: flex;
-          gap: 8px;
+          gap: 10px;
           flex-wrap: wrap;
         }
 
         .appointment-status,
-        .payment-status {
-          padding: 6px 12px;
-          border-radius: 20px;
+        .payment-status,
+        .concurrent-badge {
+          padding: 8px 16px;
+          border-radius: 25px;
           color: white;
-          font-size: 12px;
-          font-weight: bold;
+          font-size: 13px;
+          font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 0.5px;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .appointment-status::before,
+        .payment-status::before {
+          content: '';
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: currentColor;
+          opacity: 0.8;
+        }
+
+        .concurrent-badge {
+          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
         }
 
         .appointment-details {
-          margin-bottom: 20px;
+          margin-bottom: 24px;
         }
 
         .appointment-details p {
-          margin: 8px 0;
-          color: #4a5568;
-          line-height: 1.5;
+          margin: 10px 0;
+          color: #475569;
+          line-height: 1.6;
+          font-size: 15px;
         }
 
         .customer-info {
-          margin-top: 16px;
-          padding: 16px;
-          background: #f8fafc;
-          border-radius: 8px;
-          border-left: 3px solid #4299e1;
+          margin-top: 20px;
+          padding: 20px;
+          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+          border-radius: 10px;
+          border-left: 5px solid #3b82f6;
         }
 
         .payment-info {
-          margin-top: 16px;
-          padding: 16px;
-          background: #f0fff4;
-          border-radius: 8px;
-          border-left: 3px solid #48bb78;
+          margin-top: 20px;
+          padding: 20px;
+          background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+          border-radius: 10px;
+          border-left: 5px solid #22c55e;
         }
 
         .payment-info p {
-          margin: 0 0 12px 0;
-          font-weight: 600;
-          color: #2d3748;
+          margin: 0 0 16px 0;
+          font-weight: 700;
+          color: #1e293b;
+          font-size: 16px;
         }
 
         .payment-details-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 12px;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+          gap: 16px;
         }
 
         .payment-item {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 8px;
+          padding: 12px 16px;
           background: white;
-          border-radius: 6px;
-          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          border: 2px solid #e2e8f0;
+          transition: all 0.3s;
+        }
+
+        .payment-item:hover {
+          border-color: #cbd5e0;
+          transform: translateY(-2px);
         }
 
         .payment-label {
-          color: #718096;
-          font-size: 13px;
-          font-weight: 500;
+          color: #64748b;
+          font-size: 14px;
+          font-weight: 600;
         }
 
         .payment-value {
-          color: #2d3748;
-          font-weight: 600;
-          font-size: 14px;
+          color: #1e293b;
+          font-weight: 700;
+          font-size: 15px;
         }
 
         .receipt-number {
-          font-family: 'Courier New', monospace;
-          background: #edf2f7;
-          padding: 2px 6px;
-          border-radius: 4px;
-          font-size: 12px;
+          font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Courier New', monospace;
+          background: #f1f5f9;
+          padding: 6px 12px;
+          border-radius: 6px;
+          font-size: 13px;
+          letter-spacing: 0.8px;
         }
 
         .admin-info {
-          margin-top: 12px;
-          padding: 12px;
-          background: #e6fffa;
-          border-radius: 6px;
-          border-left: 3px solid #38b2ac;
-          font-size: 13px;
+          margin-top: 16px;
+          padding: 16px;
+          background: linear-gradient(135deg, #ecfeff 0%, #cffafe 100%);
+          border-radius: 8px;
+          border-left: 5px solid #06b6d4;
+          font-size: 14px;
         }
 
         .appointment-requirements {
-          margin: 16px 0;
-          padding: 16px;
-          background: #fffaf0;
-          border-radius: 8px;
-          border-left: 3px solid #ed8936;
+          margin: 20px 0;
+          padding: 20px;
+          background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+          border-radius: 10px;
+          border-left: 5px solid #f59e0b;
+        }
+
+        .appointment-requirements strong {
+          color: #92400e;
+          font-size: 16px;
+          display: block;
+          margin-bottom: 12px;
         }
 
         .appointment-requirements ul {
-          margin: 8px 0 0 0;
+          margin: 0;
           padding-left: 20px;
         }
 
         .appointment-requirements li {
-          margin: 4px 0;
-          color: #744210;
+          margin: 8px 0;
+          color: #92400e;
+          font-size: 14px;
+          line-height: 1.5;
         }
 
         .appointment-actions {
           display: flex;
-          gap: 8px;
+          gap: 12px;
           flex-wrap: wrap;
-          margin-top: 20px;
-          padding-top: 20px;
-          border-top: 2px solid #edf2f7;
+          margin-top: 24px;
+          padding-top: 24px;
+          border-top: 2px solid #f1f5f9;
         }
 
         .appointment-actions button {
-          padding: 10px 20px;
+          padding: 12px 24px;
           border: none;
-          border-radius: 8px;
+          border-radius: 10px;
           cursor: pointer;
-          font-size: 14px;
-          font-weight: 500;
-          transition: all 0.2s;
+          font-size: 15px;
+          font-weight: 600;
+          transition: all 0.3s;
           display: flex;
           align-items: center;
-          gap: 6px;
+          gap: 10px;
+          min-width: 140px;
+          justify-content: center;
         }
 
         .btn-confirm {
-          background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
           color: white;
         }
 
         .btn-confirm:hover {
-          background: linear-gradient(135deg, #3ac569 0%, #2f855a 100%);
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(72, 187, 120, 0.3);
+          background: linear-gradient(135deg, #059669 0%, #047857 100%);
+          transform: translateY(-3px);
+          box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
         }
 
         .btn-cancel {
-          background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+          background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
           color: white;
         }
 
         .btn-cancel:hover {
-          background: linear-gradient(135deg, #f44141 0%, #d22d2d 100%);
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(245, 101, 101, 0.3);
+          background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+          transform: translateY(-3px);
+          box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4);
         }
 
         .btn-complete {
-          background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+          background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
           color: white;
         }
 
         .btn-complete:hover {
-          background: linear-gradient(135deg, #3182ce 0%, #2b6cb0 100%);
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(66, 153, 225, 0.3);
+          background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+          transform: translateY(-3px);
+          box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
         }
 
         .btn-receipt {
-          background: linear-gradient(135deg, #805ad5 0%, #6b46c1 100%);
+          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
           color: white;
         }
 
         .btn-receipt:hover {
-          background: linear-gradient(135deg, #6b46c1 0%, #553c9a 100%);
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(128, 90, 213, 0.3);
+          background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+          transform: translateY(-3px);
+          box-shadow: 0 8px 20px rgba(139, 92, 246, 0.4);
         }
 
         .btn-archive {
-          background: linear-gradient(135deg, #718096 0%, #4a5568 100%);
+          background: linear-gradient(135deg, #64748b 0%, #475569 100%);
           color: white;
         }
 
         .btn-archive:hover {
-          background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(113, 128, 150, 0.3);
+          background: linear-gradient(135deg, #475569 0%, #334155 100%);
+          transform: translateY(-3px);
+          box-shadow: 0 8px 20px rgba(100, 116, 139, 0.4);
         }
 
-        @media (max-width: 768px) {
+        @media (max-width: 1024px) {
           .page-container {
             padding: 15px;
           }
 
           .page-content {
+            padding: 24px;
+          }
+
+          .schedule-header h1 {
+            font-size: 28px;
+          }
+
+          .toggle-btn {
+            padding: 10px 20px;
+            font-size: 14px;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .page-content {
             padding: 20px;
+          }
+
+          .schedule-header h1 {
+            font-size: 24px;
+          }
+
+          .toggle-buttons {
+            width: 100%;
+            justify-content: center;
+          }
+
+          .toggle-btn {
+            flex: 1;
+            justify-content: center;
           }
 
           .appointment-header {
             flex-direction: column;
-            gap: 12px;
+            gap: 16px;
           }
 
           .status-badges {
@@ -828,50 +1055,50 @@ const AppointmentSchedulePage = () => {
           }
 
           .filters-section {
-            flex-direction: column;
+            gap: 16px;
           }
 
           .status-filters {
-            justify-content: center;
+            overflow-x: auto;
+            padding-bottom: 10px;
+            margin: -10px;
+            padding: 10px;
           }
 
           .filter-btn {
-            flex: 1;
-            text-align: center;
-            min-width: 80px;
+            white-space: nowrap;
           }
         }
 
         @media (max-width: 480px) {
           .appointment-card {
-            padding: 16px;
+            padding: 20px;
           }
 
           .appointment-header h3 {
-            font-size: 1.1rem;
+            font-size: 20px;
           }
 
           .appointment-status,
-          .payment-status {
-            font-size: 10px;
-            padding: 4px 8px;
-          }
-
-          .payment-item {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 4px;
-          }
-
+          .payment-status,
           .concurrent-badge {
-            padding: 6px 12px;
-            border-radius: 20px;
-            background: linear-gradient(135deg, #805ad5 0%, #6b46c1 100%);
-            color: white;
             font-size: 12px;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            padding: 6px 12px;
+          }
+
+          .toggle-btn {
+            padding: 8px 16px;
+            font-size: 13px;
+          }
+
+          .toggle-btn svg {
+            width: 18px;
+            height: 18px;
+          }
+
+          .search-input {
+            padding: 12px 16px;
+            font-size: 14px;
           }
         }
       `}</style>
@@ -879,4 +1106,4 @@ const AppointmentSchedulePage = () => {
   )
 }
 
-export default AppointmentSchedulePage
+export default AppointmentSchedulePage  

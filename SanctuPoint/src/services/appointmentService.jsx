@@ -84,16 +84,16 @@ const generateReceiptNumber = () => {
 const validateDateInAdvance = (date) => {
   const appointmentDate = new Date(date);
   const today = new Date();
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
-  tomorrow.setHours(0, 0, 0, 0);
   
-  return appointmentDate >= tomorrow;
+  // Set both to start of day for fair comparison
+  appointmentDate.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+  
+  // Check if appointment date is strictly greater than today
+  return appointmentDate > today; 
 };
 
-// UPDATED: FIXED checkTimeConflicts function with proper overlap detection for all scenarios
 const checkTimeConflicts = (existingAppointments, slotStartMinutes, slotEndMinutes, bufferMinutes = 60, allowConcurrent = false, serviceType = null) => {
-  // If there are no existing appointments, no conflict
   if (!existingAppointments || existingAppointments.length === 0) {
     return { hasConflict: false };
   }
@@ -684,15 +684,6 @@ export const appointmentService = {
         )
       }
 
-      // Helper function to detect anonymous appointments
-      const isAnonymousAppointment = (app) => {
-        return (
-          app.customer_first_name === 'Anonymous' && 
-          app.customer_last_name === 'Customer' && 
-          app.customer_email === 'anonymous@example.com'
-        );
-      };
-
       const totalPayments = appointment.payments?.reduce(
         (sum, payment) => sum + (parseFloat(payment.amount) || 0), 
         0
@@ -727,8 +718,7 @@ export const appointmentService = {
           customer_last_name: appointment.customer_last_name,
           customer_email: appointment.customer_email,
           customer_phone: appointment.customer_phone,
-          // Use detection instead of database field
-          is_anonymous: isAnonymousAppointment(appointment),
+          // REMOVED: is_anonymous field
           payment_amount: appointment.payment_amount,
           amount_paid: appointment.amount_paid,
           change_amount: appointment.change_amount,
@@ -910,20 +900,14 @@ export const appointmentService = {
 
       console.log(`📊 Found ${appointments?.length || 0} paid appointments`);
 
-      // Add a helper function to detect anonymous appointments
-      const isAnonymousAppointment = (app) => {
-        return (
-          app.customer_first_name === 'Anonymous' && 
-          app.customer_last_name === 'Customer' && 
-          app.customer_email === 'anonymous@example.com'
-        );
-      };
+      // REMOVED: isAnonymousAppointment function
 
       const formattedAppointments = appointments?.map(app => ({
         ...app,
         date: app.appointment_date,
         time: app.appointment_time,
-        customer_name: isAnonymousAppointment(app) ? 'Anonymous Customer' : `${app.customer_first_name} ${app.customer_last_name}`,
+        // SIMPLIFIED: Direct customer name display
+        customer_name: `${app.customer_first_name} ${app.customer_last_name}`,
         service_name: app.services?.service_name || app.service_type,
         offering_items: app.appointment_products?.map(item => ({
           name: item.products?.product_name || 'Unknown',
@@ -942,6 +926,11 @@ export const appointmentService = {
         created_at: purchase.created_at
       })) || [];
 
+      // Calculate totals (you'll need to define totals calculation based on your needs)
+      const totals = {
+        // Add your totals calculation logic here
+      };
+
       return {
         success: true,
         data: {
@@ -950,7 +939,7 @@ export const appointmentService = {
           appointments: formattedAppointments,
           standaloneOfferings: formattedStandalonePurchases
         },
-        message: `Daily report: ${totals.totalAppointments} appointments, ${totals.totalStandaloneOfferings} standalone offerings, ₱${totals.netRevenue.toFixed(2)} service revenue, ₱${totals.totalOfferingsRevenue.toFixed(2)} offerings revenue`
+        message: `Daily report generated successfully`
       }
     } catch (error) {
       return handleSupabaseError(error, 'generate daily report')
@@ -1061,23 +1050,15 @@ export const appointmentService = {
         return handleSupabaseError(error, 'fetch appointment stats')
       }
 
-      // Helper function to detect anonymous appointments
-      const isAnonymousAppointment = (app) => {
-        return (
-          app.customer_first_name === 'Anonymous' && 
-          app.customer_last_name === 'Customer' && 
-          app.customer_email === 'anonymous@example.com'
-        );
-      };
+      // REMOVED: isAnonymousAppointment function and anonymousCount calculation
 
-      const anonymousCount = appointments?.filter(app => isAnonymousAppointment(app)).length || 0;
       const offeringTotals = appointments?.reduce((sum, app) => {
         return sum + calculateOfferingTotal(app.appointment_products);
       }, 0) || 0;
 
       const stats = {
         total_appointments: appointments?.length || 0,
-        anonymous_appointments: anonymousCount,
+        // REMOVED: anonymous_appointments: anonymousCount,
         pending_count: appointments?.filter(a => a.status === 'pending').length || 0,
         confirmed_count: appointments?.filter(a => a.status === 'confirmed').length || 0,
         completed_count: appointments?.filter(a => a.status === 'completed').length || 0,
@@ -1239,16 +1220,8 @@ export const appointmentService = {
         return handleSupabaseError(error, 'fetch appointment summary');
       }
 
-      // Helper function to detect anonymous appointments
-      const isAnonymousAppointment = (app) => {
-        return (
-          app.customer_first_name === 'Anonymous' && 
-          app.customer_last_name === 'Customer' && 
-          app.customer_email === 'anonymous@example.com'
-        );
-      };
+      // REMOVED: isAnonymousAppointment function
 
-      const isAnonymous = isAnonymousAppointment(data);
       const serviceTotal = data.services?.price || 0;
       const offeringTotal = calculateOfferingTotal(data.appointment_products);
       const grandTotal = serviceTotal + offeringTotal;
@@ -1259,7 +1232,7 @@ export const appointmentService = {
         service_price: serviceTotal,
         service_duration: data.service_duration || 60,
         allow_concurrent: data.services?.allow_concurrent || false,
-        is_anonymous: isAnonymous,
+        // REMOVED: is_anonymous field
         offering_items: data.appointment_products?.map(item => ({
           name: item.products?.product_name || 'Unknown',
           description: item.products?.description || '',
@@ -1272,7 +1245,8 @@ export const appointmentService = {
         amount_paid: data.amount_paid || 0,
         change_amount: data.change_amount || 0,
         receipt_number: data.receipt_number,
-        customer_name: isAnonymous ? '👤 Anonymous Customer' : `${data.customer_first_name} ${data.customer_last_name}`
+        // SIMPLIFIED: Direct customer name display
+        customer_name: `${data.customer_first_name} ${data.customer_last_name}`
       };
 
       return { success: true, data: summary };

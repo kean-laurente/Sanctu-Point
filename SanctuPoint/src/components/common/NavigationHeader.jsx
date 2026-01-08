@@ -13,7 +13,7 @@ const NavigationHeader = ({ currentPage, onPageChange }) => {
   { key: 'appointment-schedule', label: 'Appointment Schedule', description: 'View Schedule' },
   { key: 'appointment-history', label: 'Appointment History', description: 'Past Appointments' },
   { key: 'staff-management', label: 'Staff Management', description: 'Manage Staff' },
-  { key: 'daily-reports', label: 'Daily Reports', description: 'Accounting Reports' },
+  // { key: 'daily-reports', label: 'Daily Reports', description: 'Accounting Reports' },
   { key: 'donation', label: 'Donation', description: 'Support Us' }
 ];
 
