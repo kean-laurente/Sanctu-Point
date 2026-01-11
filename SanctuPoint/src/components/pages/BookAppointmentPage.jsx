@@ -4,7 +4,9 @@ import { servicesService } from '../../services/servicesService'
 import { productsService } from '../../services/productsService'
 import { offeringService } from '../../services/offeringService'
 import { authService } from '../../auth/authService'
-import { printReceipt } from '../../utils/receiptUtils'
+import SuccessModal from '../common/SuccessModal'
+import ErrorModal from '../common/ErrorModal'
+import ReceiptModal from '../common/ReceiptModal'
 
 const BookAppointmentPage = () => {
   const [services, setServices] = useState([])
@@ -12,13 +14,20 @@ const BookAppointmentPage = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [showErrorModal, setShowErrorModal] = useState(false)
   const [currentUser, setCurrentUser] = useState(null)
+  const [showReceiptModal, setShowReceiptModal] = useState(false)
+  const [receiptData, setReceiptData] = useState(null)
   const [selectedService, setSelectedService] = useState(null)
   const [serviceRequirements, setServiceRequirements] = useState([])
   const [customRequirements, setCustomRequirements] = useState([''])
   const [selectedProducts, setSelectedProducts] = useState([])
   const [isOfferingOnly, setIsOfferingOnly] = useState(false)
   const [isAnonymousBooking, setIsAnonymousBooking] = useState(false)
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [confirmMessage, setConfirmMessage] = useState('')
+  const confirmCallbackRef = useRef(null)
   
   const [availableTimeSlots, setAvailableTimeSlots] = useState([])
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false)
@@ -710,94 +719,138 @@ const BookAppointmentPage = () => {
 
   const handleSubmitAppointment = async (e) => {
     e.preventDefault()
-    setLoading(true)
-    setError('')
-    setSuccess('')
 
-    const errors = validateForm()
-    if (errors.length > 0) {
-      setError(errors.join(', '))
-      setLoading(false)
-      return
-    }
+    setConfirmMessage('Are you sure you want to book this appointment?')
+    confirmCallbackRef.current = async () => {
+      setShowConfirmModal(false)
+      setLoading(true)
+      setError('')
+      setShowErrorModal(false)
+      setSuccess('')
 
-    try {
-      const allRequirements = []
-      
-      serviceRequirements
-        .filter(req => req.isChecked)
-        .forEach(req => {
-          allRequirements.push(req.details)
-        })
-      
-      const validCustomReqs = customRequirements.filter(req => req.trim() !== '')
-      allRequirements.push(...validCustomReqs)
-
-      // Prepare data WITHOUT is_anonymous field
-      const cleanedData = {
-        ...formData,
-        // These fields are already auto-filled by the useEffect
-        // when isAnonymousBooking is true
-        first_name: formData.first_name,
-        last_name: formData.last_name,
-        email: formData.email,
-        phone: formData.phone ? formData.phone.replace(/\D/g, '') : '',
-        amount_paid: formData.amount_paid,
-        requirements: allRequirements
-        // REMOVE: is_anonymous: isAnonymousBooking
+      const errors = validateForm()
+      if (errors.length > 0) {
+        setError(errors.join(', '))
+        setShowErrorModal(true)
+        setLoading(false)
+        return
       }
 
-      console.log('Submitting appointment data:', cleanedData)
-
-      const appointmentResult = await appointmentService.createAppointment(cleanedData, currentUser)
-
-      if (appointmentResult.success) {
-        if (selectedProducts.length > 0) {
-          await productsService.addProductsToAppointment(
-            appointmentResult.data.appointment_id,
-            selectedProducts,
-            currentUser
-          )
-          
-          const updatedAppointment = await appointmentService.getAppointmentWithProducts(appointmentResult.data.appointment_id)
-          
-          if (updatedAppointment.success) {
-            setSuccess('Appointment booked and offerings recorded successfully! Printing receipt...')
-            
-            setTimeout(() => {
-              printReceipt(updatedAppointment.data)
-            }, 1500)
-          } else {
-            setSuccess('Appointment booked successfully! (Offerings may not be included in receipt)')
-          }
-        } else {
-          setSuccess('Appointment booked and paid successfully! Printing receipt...')
-          
-          setTimeout(() => {
-            printReceipt(appointmentResult.data)
-          }, 1500)
-        }
+      try {
+        const allRequirements = []
         
-        resetForm()
-      } else {
-        setError(appointmentResult.error || 'Failed to book appointment')
+        serviceRequirements.forEach(req => {
+          if (req.isRequired) {
+            allRequirements.push({
+              requirement_details: req.details,
+              is_required: true,
+              is_checked: req.isChecked
+            })
+          } else {
+            allRequirements.push({
+              requirement_details: req.details,
+              is_required: false,
+              is_checked: req.isChecked
+            })
+          }
+        })
+        
+        const validCustomReqs = customRequirements.filter(req => req.trim() !== '')
+        allRequirements.push(...validCustomReqs.map(req => ({
+          requirement_details: req.trim(),
+          is_required: false,
+          is_checked: false
+        })))
+
+        const cleanedData = {
+          ...formData,
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+          email: formData.email,
+          phone: formData.phone ? formData.phone.replace(/\D/g, '') : '',
+          amount_paid: formData.amount_paid,
+          requirements: allRequirements
+        }
+
+        console.log('Submitting appointment with requirements:', {
+          requirements: allRequirements.map(r => ({ 
+            details: r.requirement_details, 
+            required: r.is_required, 
+            checked: r.is_checked 
+          }))
+        })
+
+        const appointmentResult = await appointmentService.createAppointment(cleanedData, currentUser)
+
+        if (appointmentResult.success) {
+          if (selectedProducts.length > 0) {
+            await productsService.addProductsToAppointment(
+              appointmentResult.data.appointment_id,
+              selectedProducts,
+              currentUser
+            )
+            
+            const updatedAppointment = await appointmentService.getAppointmentWithProducts(appointmentResult.data.appointment_id)
+            
+            if (updatedAppointment.success) {
+              setSuccess('Appointment booked and offerings recorded successfully!')
+              setShowSuccessModal(true)
+              setReceiptData(updatedAppointment.data)
+              setShowReceiptModal(true)
+            } else {
+              setSuccess('Appointment booked successfully! (Offerings may not be included in receipt)')
+              setShowSuccessModal(true)
+              setReceiptData(appointmentResult.data)
+              setShowReceiptModal(true)
+            }
+          } else {
+            setSuccess('Appointment booked and paid successfully!')
+            setShowSuccessModal(true)
+            setReceiptData(appointmentResult.data)
+            setShowReceiptModal(true)
+          }
+          
+          resetForm()
+        } else {
+          setError(appointmentResult.error || 'Failed to book appointment')
+          setShowErrorModal(true)
+        }
+      } catch (err) {
+        console.error('Error booking appointment:', err)
+        setError('An error occurred while booking appointment')
+        setShowErrorModal(true)
+      } finally {
+        setLoading(false)
       }
-    } catch (err) {
-      setError('An error occurred while booking appointment')
-    } finally {
-      setLoading(false)
     }
+
+    setShowConfirmModal(true)
+  }
+
+  const submitAppointmentConfirmed = async () => {
+    if (confirmCallbackRef.current) {
+      await confirmCallbackRef.current()
+      confirmCallbackRef.current = null
+    }
+  }
+
+  const cancelConfirm = () => {
+    setShowConfirmModal(false)
+    setLoading(false)
+    confirmCallbackRef.current = null
   }
 
   const handleSubmitOfferingOnly = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError('')
+    setShowErrorModal(false)
     setSuccess('')
 
     const errors = validateOfferingForm()
     if (errors.length > 0) {
       setError(errors.join(', '))
+      setShowErrorModal(true)
       setLoading(false)
       return
     }
@@ -813,18 +866,19 @@ const BookAppointmentPage = () => {
       )
 
       if (result.success) {
-        setSuccess('Offering recorded successfully! Printing receipt...')
-        
-        setTimeout(() => {
-          printReceipt(result.data)
-        }, 1500)
+        setSuccess('Offering recorded successfully!')
+        setShowSuccessModal(true)
+        setReceiptData(result.data)
+        setShowReceiptModal(true)
         
         resetOfferingForm()
       } else {
         setError(result.error || 'Failed to record offering')
+        setShowErrorModal(true)
       }
     } catch (err) {
       setError('An error occurred while recording offering')
+      setShowErrorModal(true)
     } finally {
       setLoading(false)
     }
@@ -889,15 +943,29 @@ const BookAppointmentPage = () => {
           </div>
         </div>
 
-        {error && (
-          <div className="message error">
-            {error}
-          </div>
-        )}
+        <ErrorModal isOpen={showErrorModal} onClose={() => setShowErrorModal(false)} />
 
-        {success && (
-          <div className="message success">
-            {success}
+        <SuccessModal 
+          message={success} 
+          isOpen={showSuccessModal} 
+          onClose={() => setShowSuccessModal(false)} 
+        />
+
+        <ReceiptModal 
+          appointment={receiptData} 
+          isOpen={showReceiptModal} 
+          onClose={() => setShowReceiptModal(false)} 
+        />
+
+        {showConfirmModal && (
+          <div className="confirm-modal-overlay" onClick={cancelConfirm}>
+            <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
+              <p className="confirm-modal-message">{confirmMessage}</p>
+              <div className="confirm-modal-actions">
+                <button type="button" onClick={cancelConfirm} className="confirm-btn cancel">Cancel</button>
+                <button type="button" onClick={submitAppointmentConfirmed} className="confirm-btn confirm">Confirm</button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -1380,10 +1448,10 @@ const BookAppointmentPage = () => {
                           className="requirement-checkbox"
                           required={req.isRequired}
                         />
-                        <span className={`requirement-text ${req.isRequired ? 'required' : 'optional'}`}>
+                        <span className={`requirement-text ${req.isRequired ? 'required' : 'to-follow'}`}>
                           {req.details}
                           <span className="requirement-type">
-                            {req.isRequired ? ' (Required)' : ' (Optional)'}
+                            {req.isRequired ? ' (Required - Must be checked)' : ' (To be followed - Can check later)'}
                           </span>
                         </span>
                       </label>
@@ -1393,8 +1461,8 @@ const BookAppointmentPage = () => {
                 
                 <div className="requirements-note">
                   <small>
-                    ⚠️ Required items must be checked before booking. 
-                    Optional items can be selected as needed.
+                    ⚠️ <strong>Required items must be checked before booking.</strong><br/>
+                    ✅ <strong>To be followed items can be checked later by staff in the appointment schedule.</strong>
                   </small>
                 </div>
               </div>
@@ -1676,7 +1744,7 @@ const BookAppointmentPage = () => {
         )}
       </div>
 
-      <style jsx>{`
+      <style>{`
         .page-container {
           padding: 20px;
           max-width: 1000px;

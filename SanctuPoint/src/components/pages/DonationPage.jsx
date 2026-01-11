@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react'
 import { donationService } from '../../services/donationService'
+import SuccessModal from '../common/SuccessModal'
+import ErrorModal from '../common/ErrorModal'
 
 const DonationPage = () => {
   const [donations, setDonations] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [showErrorModal, setShowErrorModal] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [stats, setStats] = useState({
     totalAmount: 0,
@@ -35,6 +39,7 @@ const DonationPage = () => {
   const loadDonations = async () => {
     setLoading(true)
     setError('')
+    setShowErrorModal(false)
     try {
       const result = await donationService.getDonations()
       
@@ -42,9 +47,11 @@ const DonationPage = () => {
         setDonations(result.data || [])
       } else {
         setError(result.error || 'Failed to load donations')
+        setShowErrorModal(true)
       }
     } catch (err) {
       setError('An error occurred while loading donations')
+      setShowErrorModal(true)
     } finally {
       setLoading(false)
     }
@@ -146,6 +153,7 @@ const DonationPage = () => {
       
       if (result.success) {
         setSuccess(result.message || 'Donation recorded successfully!')
+        setShowSuccessModal(true)
         setFormData({
           donor_name: '',
           amount: '',
@@ -208,12 +216,11 @@ const DonationPage = () => {
           </div>
         )}
 
-        {success && (
-          <div className="message success">
-            <span className="success-icon">✅</span>
-            <span>{success}</span>
-          </div>
-        )}
+        <SuccessModal 
+          message={success} 
+          isOpen={showSuccessModal} 
+          onClose={() => setShowSuccessModal(false)} 
+        />
 
         {/* Statistics Cards */}
         <div className="stats-cards">
@@ -421,7 +428,7 @@ const DonationPage = () => {
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         .page-container {
           padding: 20px;
           max-width: 1200px;

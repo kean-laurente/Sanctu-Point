@@ -984,7 +984,7 @@ const StaffManagement = ({ currentUser, onStaffUpdate }) => {
         )}
       </div>
 
-      <style jsx>{`
+      <style>{`
         .staff-management {
           display: flex;
           flex-direction: column;

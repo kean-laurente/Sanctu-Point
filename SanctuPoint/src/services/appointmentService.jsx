@@ -45,7 +45,9 @@ const fetchRequirementsAndPayments = async (appointmentIds) => {
     supabase
       .from('requirements')
       .select('*')
-      .in('appointment_id', appointmentIds),
+      .in('appointment_id', appointmentIds)
+      .order('is_required', { ascending: false }) // Show required first
+      .order('requirement_id', { ascending: true }),
     supabase
       .from('payments')
       .select('*')
@@ -59,7 +61,10 @@ const fetchRequirementsAndPayments = async (appointmentIds) => {
     if (!requirementsMap[req.appointment_id]) {
       requirementsMap[req.appointment_id] = [];
     }
-    requirementsMap[req.appointment_id].push(req);
+    requirementsMap[req.appointment_id].push({
+      ...req,
+      is_checked: req.is_checked || false // Ensure is_checked is always defined
+    });
   });
 
   paymentsResult.data?.forEach(payment => {
@@ -214,7 +219,8 @@ export const appointmentService = {
           appointment_products:appointment_products(
             *,
             products:product_id(product_name, description)
-          )
+          ),
+          requirements:requirements(*)
         `)
         .order('appointment_date', { ascending: true })
         .order('appointment_time', { ascending: true })
@@ -224,13 +230,32 @@ export const appointmentService = {
       }
 
       console.log('✅ Appointments fetched:', appointments?.length || 0);
+      console.log('✅ Sample appointment with requirements:', appointments?.[0]?.requirements || 'No requirements');
       
-      const appointmentIds = appointments?.map(a => a.appointment_id) || [];
-      const { requirementsMap, paymentsMap } = await fetchRequirementsAndPayments(appointmentIds);
-
-      const appointmentsWithDetails = appointments?.map(appointment => 
-        combineAppointmentData(appointment, requirementsMap, paymentsMap)
-      ) || [];
+      // Process appointments
+      const appointmentsWithDetails = appointments?.map(appointment => {
+        // Ensure requirements have proper structure
+        const requirements = (appointment.requirements || []).map(req => ({
+          requirement_id: req.requirement_id,
+          appointment_id: req.appointment_id,
+          requirement_details: req.requirement_details,
+          is_required: req.is_required || false,
+          is_checked: req.is_checked || false,
+          is_predefined: req.is_predefined || false,
+          created_at: req.created_at
+        }));
+        
+        return {
+          ...appointment,
+          date: appointment.appointment_date,
+          time: appointment.appointment_time,
+          requirements: requirements,
+          payments: appointment.payments || [],
+          service_price: appointment.services?.price || 0,
+          service_duration: appointment.service_duration || 60,
+          offering_total: calculateOfferingTotal(appointment.appointment_products)
+        };
+      }) || [];
 
       return { success: true, data: appointmentsWithDetails }
     } catch (error) {
@@ -288,7 +313,8 @@ export const appointmentService = {
           appointment_products:appointment_products(
             *,
             products:product_id(product_name)
-          )
+          ),
+          requirements:requirements(*)
         `)
         .eq('created_by', userId)
         .order('appointment_date', { ascending: true })
@@ -298,12 +324,31 @@ export const appointmentService = {
         return handleSupabaseError(appointmentsError, 'fetch user appointments')
       }
 
-      const appointmentIds = appointments?.map(a => a.appointment_id) || [];
-      const { requirementsMap, paymentsMap } = await fetchRequirementsAndPayments(appointmentIds);
-
-      const userAppointments = appointments?.map(appointment => 
-        combineAppointmentData(appointment, requirementsMap, paymentsMap)
-      ) || [];
+      console.log('✅ User appointments raw data:', appointments?.length || 0);
+      
+      const userAppointments = appointments?.map(appointment => {
+        // Ensure requirements have proper structure
+        const requirements = (appointment.requirements || []).map(req => ({
+          requirement_id: req.requirement_id,
+          appointment_id: req.appointment_id,
+          requirement_details: req.requirement_details,
+          is_required: req.is_required || false,
+          is_checked: req.is_checked || false,
+          is_predefined: req.is_predefined || false,
+          created_at: req.created_at
+        }));
+        
+        return {
+          ...appointment,
+          date: appointment.appointment_date,
+          time: appointment.appointment_time,
+          requirements: requirements,
+          payments: appointment.payments || [],
+          service_price: appointment.services?.price || 0,
+          service_duration: appointment.service_duration || 60,
+          offering_total: calculateOfferingTotal(appointment.appointment_products)
+        };
+      }) || [];
 
       console.log('✅ User appointments processed:', userAppointments.length);
       return { success: true, data: userAppointments }
@@ -469,7 +514,8 @@ export const appointmentService = {
         if (service.requirements?.length > 0) {
           predefinedRequirements = service.requirements.map(req => ({
             requirement_details: req.requirement_details,
-            is_required: req.is_required
+            is_required: req.is_required,
+            is_checked: false // Start as unchecked, will be updated based on user selection
           }));
         }
       }
@@ -528,11 +574,99 @@ export const appointmentService = {
 
       console.log('✅ Appointment created:', appointment.appointment_id);
 
-      await this.createAppointmentRequirements(
-        appointment.appointment_id, 
-        predefinedRequirements, 
-        appointmentData.requirements
-      );
+      // Log the requirements data being passed
+      console.log('📝 Creating requirements with data:', {
+        appointmentId: appointment.appointment_id,
+        predefinedRequirements: predefinedRequirements,
+        userRequirements: appointmentData.requirements || [],
+        allRequirementsData: {
+          total: appointmentData.requirements?.length || 0,
+          details: appointmentData.requirements?.map(r => ({
+            details: r.requirement_details,
+            required: r.is_required,
+            checked: r.is_checked
+          })) || []
+        }
+      });
+
+      // Process requirements from the booking
+      const requirementsToSave = [];
+      
+      if (appointmentData.requirements && appointmentData.requirements.length > 0) {
+        // Merge predefined requirements with user selections
+        const userRequirements = appointmentData.requirements || [];
+        
+        // For each predefined requirement, check if user checked it
+        predefinedRequirements.forEach(predefinedReq => {
+          const userReq = userRequirements.find(ur => 
+            ur.requirement_details === predefinedReq.requirement_details
+          );
+          
+          requirementsToSave.push({
+            appointment_id: appointment.appointment_id,
+            requirement_details: predefinedReq.requirement_details,
+            is_required: predefinedReq.is_required,
+            is_predefined: true,
+            is_checked: userReq ? userReq.is_checked : (predefinedReq.is_required ? true : false),
+            created_at: new Date().toISOString()
+          });
+        });
+
+        // Add any custom requirements (non-predefined)
+        const customRequirements = userRequirements.filter(req => 
+          !predefinedRequirements.some(pre => pre.requirement_details === req.requirement_details)
+        );
+        
+        customRequirements.forEach(customReq => {
+          if (customReq.requirement_details && customReq.requirement_details.trim()) {
+            requirementsToSave.push({
+              appointment_id: appointment.appointment_id,
+              requirement_details: customReq.requirement_details.trim(),
+              is_required: customReq.is_required || false,
+              is_predefined: false,
+              is_checked: customReq.is_checked || false,
+              created_at: new Date().toISOString()
+            });
+          }
+        });
+      } else {
+        // If no requirements data from user, just save predefined ones
+        predefinedRequirements.forEach(predefinedReq => {
+          requirementsToSave.push({
+            appointment_id: appointment.appointment_id,
+            requirement_details: predefinedReq.requirement_details,
+            is_required: predefinedReq.is_required,
+            is_predefined: true,
+            is_checked: predefinedReq.is_required ? true : false,
+            created_at: new Date().toISOString()
+          });
+        });
+      }
+
+      // Save requirements to database
+      if (requirementsToSave.length > 0) {
+        console.log('💾 Saving requirements to database:', {
+          count: requirementsToSave.length,
+          details: requirementsToSave.map(r => ({
+            details: r.requirement_details,
+            required: r.is_required,
+            checked: r.is_checked
+          }))
+        });
+
+        const { error: reqError } = await supabase
+          .from('requirements')
+          .insert(requirementsToSave);
+
+        if (reqError) {
+          console.error('❌ Requirements creation error:', reqError);
+          // Don't fail the appointment creation, just log the error
+        } else {
+          console.log('✅ Requirements saved successfully:', requirementsToSave.length);
+        }
+      } else {
+        console.log('ℹ️ No requirements to save');
+      }
 
       if (amountPaid > 0) {
         await supabase
@@ -561,7 +695,7 @@ export const appointmentService = {
 
   async createAppointmentRequirements(appointmentId, predefinedRequirements, customRequirements) {
     try {
-      let allRequirements = [];
+      let allRequirements = []
       
       if (predefinedRequirements.length > 0) {
         allRequirements = predefinedRequirements.map(req => ({
@@ -569,8 +703,9 @@ export const appointmentService = {
           requirement_details: req.requirement_details,
           is_required: req.is_required,
           is_predefined: true,
+          is_checked: req.is_checked || false,
           created_at: new Date().toISOString()
-        }));
+        }))
       }
 
       if (customRequirements?.length > 0) {
@@ -581,25 +716,31 @@ export const appointmentService = {
             requirement_details: req.trim(),
             is_required: false,
             is_predefined: false,
+            is_checked: false,
             created_at: new Date().toISOString()
-          }));
+          }))
         
-        allRequirements = [...allRequirements, ...customReqs];
+        allRequirements = [...allRequirements, ...customReqs]
       }
 
       if (allRequirements.length > 0) {
         const { error: reqError } = await supabase
           .from('requirements')
-          .insert(allRequirements);
+          .insert(allRequirements)
 
         if (reqError) {
-          console.error('❌ Requirements creation error:', reqError);
+          console.error('❌ Requirements creation error:', reqError)
         } else {
-          console.log('✅ Requirements added:', allRequirements.length);
+          console.log('✅ Requirements added:', allRequirements.length)
+          console.log('✅ Requirement statuses:', allRequirements.map(r => ({ 
+            details: r.requirement_details, 
+            required: r.is_required, 
+            checked: r.is_checked 
+          })))
         }
       }
     } catch (error) {
-      console.error('Error creating requirements:', error);
+      console.error('Error creating requirements:', error)
     }
   },
 
@@ -878,57 +1019,131 @@ export const appointmentService = {
   async getDailyReport(date = null) {
     try {
       const reportDate = date || new Date().toISOString().split('T')[0];
-      console.log('📅 Generating daily report for:', reportDate);
+      console.log('📅 Generating daily report for (by payment date):', reportDate);
 
-      const { data: appointments, error } = await supabase
-        .from('appointments')
+      // Fetch payments made on the report date
+      const { data: payments, error: paymentsError } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('payment_date', reportDate)
+        .order('created_at', { ascending: true });
+
+      if (paymentsError) {
+        return handleSupabaseError(paymentsError, 'fetch payments for daily report');
+      }
+
+      // Collect unique appointment IDs from today's payments
+      const appointmentIds = [...new Set((payments || []).map(p => p.appointment_id).filter(Boolean))];
+
+      // Fetch appointment records for those payments
+      let appointments = [];
+      if (appointmentIds.length > 0) {
+        const { data: appts, error: apptError } = await supabase
+          .from('appointments')
+          .select(`
+            *,
+            services:service_id(service_name),
+            appointment_products:appointment_products(
+              *,
+              products:product_id(product_name)
+            )
+          `)
+          .in('appointment_id', appointmentIds)
+          .order('appointment_time', { ascending: true });
+
+        if (apptError) {
+          return handleSupabaseError(apptError, 'fetch appointments for payments');
+        }
+
+        appointments = appts || [];
+      }
+
+      // Map payments by appointment id
+      const paymentsByAppointment = {};
+      (payments || []).forEach(p => {
+        if (!paymentsByAppointment[p.appointment_id]) paymentsByAppointment[p.appointment_id] = [];
+        paymentsByAppointment[p.appointment_id].push(p);
+      });
+
+      // Build formatted appointments using payments on the report date as the paid amount
+      const formattedAppointments = (appointments || []).map(app => {
+        const todaysPayments = paymentsByAppointment[app.appointment_id] || [];
+        const paidToday = todaysPayments.reduce((s, x) => s + (Number(x.amount) || 0), 0);
+
+        return {
+          ...app,
+          date: app.appointment_date,
+          time: app.appointment_time,
+          customer_name: `${app.customer_first_name} ${app.customer_last_name}`,
+          service_name: app.services?.service_name || app.service_type,
+          offering_items: app.appointment_products?.map(item => ({
+            name: item.products?.product_name || 'Unknown',
+            quantity: item.quantity,
+            total: item.total_price
+          })) || [],
+          // Expose amounts for the UI: `amount_paid` reflects what was paid on this report date
+          amount_paid: paidToday,
+          payment_amount: app.payment_amount || 0,
+          change_amount: app.change_amount || 0,
+          payments: todaysPayments
+        };
+      }) || [];
+
+      // Fetch standalone purchases (unchanged) for the same date
+      const { data: standalonePurchases, error: purchasesError } = await supabase
+        .from('standalone_purchases')
         .select(`
           *,
-          services:service_id(service_name),
-          appointment_products:appointment_products(
+          purchase_items:purchase_items(
             *,
             products:product_id(product_name)
           )
         `)
-        .eq('appointment_date', reportDate)
-        .eq('payment_status', 'paid')
-        .order('appointment_time', { ascending: true })
+        .eq('purchase_date', reportDate)
+        .order('created_at', { ascending: true });
 
-      if (error) {
-        return handleSupabaseError(error, 'fetch daily appointments')
+      if (purchasesError) {
+        return handleSupabaseError(purchasesError, 'fetch standalone purchases for report');
       }
-
-      console.log(`📊 Found ${appointments?.length || 0} paid appointments`);
-
-      // REMOVED: isAnonymousAppointment function
-
-      const formattedAppointments = appointments?.map(app => ({
-        ...app,
-        date: app.appointment_date,
-        time: app.appointment_time,
-        // SIMPLIFIED: Direct customer name display
-        customer_name: `${app.customer_first_name} ${app.customer_last_name}`,
-        service_name: app.services?.service_name || app.service_type,
-        offering_items: app.appointment_products?.map(item => ({
-          name: item.products?.product_name || 'Unknown',
-          quantity: item.quantity,
-          total: item.total_price
-        })) || []
-      })) || [];
 
       const formattedStandalonePurchases = standalonePurchases?.map(purchase => ({
         type: 'standalone_offering',
+        purchase_id: purchase.purchase_id,
         receipt_number: purchase.receipt_number,
         customer_name: purchase.customer_name,
-        total_amount: purchase.total_amount,
-        amount_paid: purchase.amount_paid,
-        change_amount: purchase.change_amount,
-        created_at: purchase.created_at
+        total_amount: purchase.total_amount || 0,
+        amount_paid: purchase.amount_paid || 0,
+        change_amount: purchase.change_amount || 0,
+        created_at: purchase.created_at,
+        items: purchase.purchase_items?.map(i => ({
+          name: i.products?.product_name || 'Unknown',
+          quantity: i.quantity,
+          total: i.total_price
+        })) || []
       })) || [];
 
-      // Calculate totals (you'll need to define totals calculation based on your needs)
+      // Calculate totals: sum of payments (appointments by payment_date + standalone purchases)
+      let totalPayments = 0;
+      let totalChange = 0;
+
+      // Sum payments amounts directly (payments fetched are those made on reportDate)
+      totalPayments += (payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
+
+      // Sum change amounts for unique appointments included (count change once per appointment)
+      totalChange += (appointments || []).reduce((s, a) => s + (Number(a.change_amount) || 0), 0);
+
+      // Add standalone purchases
+      formattedStandalonePurchases.forEach(p => {
+        totalPayments += Number(p.amount_paid || p.total_amount || 0);
+        totalChange += Number(p.change_amount || 0);
+      });
+
       const totals = {
-        // Add your totals calculation logic here
+        totalAppointments: formattedAppointments.length,
+        totalStandalonePurchases: formattedStandalonePurchases.length,
+        totalPayments,
+        totalChange,
+        netRevenue: totalPayments - totalChange
       };
 
       return {
@@ -993,6 +1208,14 @@ export const appointmentService = {
 
       if (error) {
         return handleSupabaseError(error, 'fetch appointment details')
+      }
+
+      // Ensure is_checked is properly set for each requirement
+      if (data.requirements) {
+        data.requirements = data.requirements.map(req => ({
+          ...req,
+          is_checked: req.is_checked || false
+        }))
       }
 
       return { success: true, data }
@@ -1117,50 +1340,42 @@ export const appointmentService = {
     }
   },
 
-  async updateAppointmentRequirements(appointmentId, requirements, currentUser) {
+
+  async updateAppointmentRequirements(appointmentId, requirementUpdates, currentUser) {
     try {
       if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'staff')) {
         return { success: false, error: 'Only administrators and staff can update requirements' };
       }
 
-      const { error: deleteError } = await supabase
-        .from('requirements')
-        .delete()
-        .eq('appointment_id', appointmentId);
+      console.log('DEBUG: Updating requirements for appointment:', appointmentId);
+      console.log('DEBUG: Updates to apply:', requirementUpdates);
 
-      if (deleteError) {
-        console.error('Error deleting old requirements:', deleteError);
-        return handleSupabaseError(deleteError, 'delete old requirements');
-      }
+      // Update each requirement individually
+      for (const update of requirementUpdates) {
+        const { error } = await supabase
+          .from('requirements')
+          .update({
+            is_checked: update.is_checked
+          })
+          .eq('requirement_id', update.requirement_id)
+          .eq('appointment_id', appointmentId);
 
-      if (requirements?.length > 0) {
-        const requirementPayload = requirements
-          .filter(req => req.requirement_details?.trim())
-          .map(req => ({
-            appointment_id: appointmentId,
-            requirement_details: req.requirement_details.trim(),
-            is_required: req.is_required || false,
-            is_predefined: req.is_predefined || false,
-            created_at: new Date().toISOString()
-          }));
-
-        if (requirementPayload.length > 0) {
-          const { error: insertError } = await supabase
-            .from('requirements')
-            .insert(requirementPayload);
-
-          if (insertError) {
-            console.error('Error inserting requirements:', insertError);
-            return handleSupabaseError(insertError, 'insert requirements');
-          }
+        if (error) {
+          console.error('Error updating requirement:', error);
+          return { 
+            success: false, 
+            error: `Failed to update requirement: ${error.message}` 
+          };
         }
       }
 
+      console.log('DEBUG: Requirements updated successfully');
       return { 
         success: true, 
         message: 'Requirements updated successfully!' 
       };
     } catch (error) {
+      console.error('Error updating appointment requirements:', error);
       return handleSupabaseError(error, 'update appointment requirements');
     }
   },

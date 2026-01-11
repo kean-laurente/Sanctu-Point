@@ -107,7 +107,9 @@ export const generateReceiptContent = (appointment) => {
   
   // Header
   let content = '================================\n';
-  content += '         CHURCH SERVICES         \n';
+  content += 'ROMAN CATHOLIC ARCHBISHOP OF CEBU (RCAC)\n';
+  content += 'ST. FRANCIS OF ASSISI PARISH\n';
+  content += 'Pili, Madrdejos, Cebu\n';
   content += '================================\n';
   content += `Date: ${printDate}\n`;
   content += `Time: ${printTime}\n`;
@@ -235,6 +237,8 @@ export const printReceipt = (appointment) => {
       <html>
       <head>
         <title>Receipt - ${appointment.receipt_number || 'N/A'}</title>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
         <style>
           @media print {
             body {
@@ -394,6 +398,23 @@ export const printReceipt = (appointment) => {
               background: #45a049;
             }
             
+            .download-button {
+              display: block;
+              width: 200px;
+              margin: 10px auto;
+              padding: 10px 20px;
+              background: #2196F3;
+              color: white;
+              border: none;
+              border-radius: 4px;
+              cursor: pointer;
+              font-size: 16px;
+            }
+            
+            .download-button:hover {
+              background: #0b7dda;
+            }
+            
             .close-button {
               display: block;
               width: 200px;
@@ -415,8 +436,14 @@ export const printReceipt = (appointment) => {
       </head>
       <body>
         <div class="receipt">
-          <div class="text-center bold uppercase mb-2">
-            CHURCH SERVICES
+          <div class="text-center bold mb-1">
+            ROMAN CATHOLIC ARCHBISHOP OF CEBU (RCAC)
+          </div>
+          <div class="text-center bold mb-1">
+            ST. FRANCIS OF ASSISI PARISH
+          </div>
+          <div class="text-center mb-1">
+            Pili, Madrdejos, Cebu
           </div>
           <div class="text-center mb-2">
             Official Receipt
@@ -524,39 +551,102 @@ export const printReceipt = (appointment) => {
           </div>
         </div>
         
-        <div class="no-print">
-          <button class="print-button" onclick="window.print()">Print Receipt</button>
-          <button class="close-button" onclick="window.close()">Close Window</button>
+        <div class="no-print" style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 2px solid #ddd;">
+          <button class="print-button" onclick="window.print()">🖨️ Print Receipt</button>
+          <button class="print-button" onclick="downloadPDF()" style="background: #2196F3; margin-top: 10px;">⬇️ Download as PDF</button>
+          <button class="close-button" onclick="window.close()" style="margin-top: 10px;">Close Window</button>
         </div>
         
         <script>
-          // Auto-print on page load
-          window.onload = function() {
-            setTimeout(function() {
-              window.print();
-            }, 500);
-          };
-          
-          // Close window after print
-          window.onafterprint = function() {
-            setTimeout(function() {
-              window.close();
-            }, 1000);
-          };
+          async function downloadPDF() {
+            try {
+              const { jsPDF } = window.jspdf;
+              const html2canvas = window.html2canvas;
+              
+              if (!jsPDF || !html2canvas) {
+                alert('PDF library not loaded. Please try again or use Print instead.');
+                return;
+              }
+              
+              const receiptElement = document.querySelector('.receipt');
+              const canvas = await html2canvas(receiptElement, { scale: 2, useCORS: true });
+              
+              const imgData = canvas.toDataURL('image/png');
+              const pdf = new jsPDF({
+                unit: 'px',
+                format: [canvas.width, canvas.height]
+              });
+              
+              pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+              pdf.save('${appointment.receipt_number || 'receipt'}.pdf');
+            } catch (error) {
+              console.error('PDF download failed:', error);
+              alert('Failed to download PDF. Please use Print instead.');
+            }
+          }
         </script>
       </body>
       </html>
     `;
     
-    // Write content to window
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-    
-    // Focus the window
-    printWindow.focus();
-    
-    return true;
-    
+    // Try to automatically generate a PDF and download using html2canvas + jsPDF
+    const tryAutoPdf = async () => {
+      try {
+        const { default: html2canvas } = await import('html2canvas');
+        const { jsPDF } = await import('jspdf');
+
+        // Create a hidden iframe to render the receipt HTML (preserves head styles)
+        const iframe = document.createElement('iframe');
+        iframe.style.position = 'fixed';
+        iframe.style.left = '-9999px';
+        document.body.appendChild(iframe);
+
+        const idoc = iframe.contentDocument || iframe.contentWindow.document;
+        idoc.open();
+        idoc.write(htmlContent);
+        idoc.close();
+
+        // Wait for resources to load
+        await new Promise((resolve) => {
+          iframe.onload = () => setTimeout(resolve, 250);
+        });
+
+        const receiptEl = idoc.querySelector('.receipt') || idoc.body;
+
+        const canvas = await html2canvas(receiptEl, { scale: 2, useCORS: true, windowWidth: receiptEl.scrollWidth, windowHeight: receiptEl.scrollHeight });
+
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF({ unit: 'px', format: [canvas.width, canvas.height] });
+        pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+
+        const filename = `${appointment.receipt_number || 'receipt'}.pdf`;
+        pdf.save(filename);
+
+        // cleanup
+        document.body.removeChild(iframe);
+        return true;
+      } catch (err) {
+        console.warn('Auto PDF generation failed, falling back to print:', err);
+        return false;
+      }
+    };
+
+    // Attempt auto PDF; if it fails, fall back to printable window
+    return tryAutoPdf().then(success => {
+      if (success) return true;
+
+      // Write content to window and open print dialog as fallback
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      printWindow.focus();
+      return true;
+    }).catch(() => {
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      printWindow.focus();
+      return true;
+    });
+
   } catch (error) {
     console.error('Error printing receipt:', error);
     

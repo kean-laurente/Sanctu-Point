@@ -336,12 +336,13 @@ const ServicesPage = () => {
     }
     
     const requiredCount = service.requirements.filter(r => r.is_required).length
-    const optionalCount = service.requirements.length - requiredCount
+    const toFollowCount = service.requirements.filter(r => !r.is_required).length
     
     return (
       <span className="req-status has">
         {service.requirements.length} requirement{service.requirements.length !== 1 ? 's' : ''}
         {requiredCount > 0 && ` (${requiredCount} required)`}
+        {toFollowCount > 0 && ` (${toFollowCount} to be followed)`}
       </span>
     )
   }
@@ -595,7 +596,7 @@ const ServicesPage = () => {
                               className="req-checkbox"
                             />
                             <span className="checkmark"></span>
-                            Required
+                            {requirement.isRequired ? 'Required (Must be checked)' : 'To be followed (Can be checked later)'}
                           </label>
                           
                           {formData.requirements.length > 1 && (
@@ -771,7 +772,7 @@ const ServicesPage = () => {
         )}
       </div>
 
-      <style jsx>{`
+      <style>{`
         /* Styles remain the same as before, just add the concurrent-badge style */
         .concurrent-badge {
           padding: 6px 12px;
@@ -789,7 +790,7 @@ const ServicesPage = () => {
       `}</style>
   
 
-      <style jsx>{`
+      <style>{`
         .page-container {
           padding: 20px;
           max-width: 1200px;

@@ -249,7 +249,7 @@ const CalendarView = ({ events, currentUser }) => {
         )}
       </div>
 
-      <style jsx>{`
+      <style>{`
         .calendar-view-container {
           display: grid;
           grid-template-columns: 1fr 1fr;

@@ -22,7 +22,7 @@ const DashboardHeader = ({ user, onLogout, title, onStaffManagementClick }) => {
         </button>
       </div>
 
-      <style jsx="true">{`
+      <style>{`
         .dashboard-header {
           display: flex;
           justify-content: space-between;

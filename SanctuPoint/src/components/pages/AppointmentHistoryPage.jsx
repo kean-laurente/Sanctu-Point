@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react'
 import { authService } from '../../auth/authService'
 import { archivedAppointmentsService } from '../../services/archivedAppointmentsService'
+import SuccessModal from '../common/SuccessModal'
+import ErrorModal from '../common/ErrorModal'
 
 const AppointmentHistoryPage = () => {
   const [archivedAppointments, setArchivedAppointments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [showErrorModal, setShowErrorModal] = useState(false)
   const [currentUser, setCurrentUser] = useState(null)
   const [filterStatus, setFilterStatus] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
@@ -29,23 +33,27 @@ const AppointmentHistoryPage = () => {
   const loadArchivedAppointments = async () => {
     if (!currentUser) {
       setError('User not authenticated')
+      setShowErrorModal(true)
       setLoading(false)
       return
     }
 
     setLoading(true)
     setError('')
+    setShowErrorModal(false)
     try {
       const result = await archivedAppointmentsService.getArchivedAppointments(currentUser)
       
       if (result.success) {
         setArchivedAppointments(result.data)
-      } else {
+        } else {
         setError(result.error || 'Failed to load archived appointments')
+        setShowErrorModal(true)
       }
     } catch (err) {
       console.error('Archived appointments loading error:', err)
       setError('An error occurred while loading archived appointments')
+      setShowErrorModal(true)
     } finally {
       setLoading(false)
     }
@@ -63,12 +71,16 @@ const AppointmentHistoryPage = () => {
       if (result.success) {
         await loadArchivedAppointments()
         setSuccess('Appointment restored successfully!')
+        setShowSuccessModal(true)
         setError('')
+        setShowErrorModal(false)
       } else {
         setError(result.error || 'Failed to restore appointment')
+        setShowErrorModal(true)
       }
     } catch (err) {
       setError('An error occurred while restoring appointment')
+      setShowErrorModal(true)
     }
   }
 
@@ -175,17 +187,13 @@ const AppointmentHistoryPage = () => {
           <p>View all archived and past appointments</p>
         </div>
 
-        {error && (
-          <div className="message error">
-            {error}
-          </div>
-        )}
+        <ErrorModal isOpen={showErrorModal} onClose={() => setShowErrorModal(false)} />
 
-        {success && (
-          <div className="message success">
-            {success}
-          </div>
-        )}
+        <SuccessModal 
+          message={success} 
+          isOpen={showSuccessModal} 
+          onClose={() => setShowSuccessModal(false)} 
+        />
 
         <div className="stats-cards">
           <div className="stat-card">

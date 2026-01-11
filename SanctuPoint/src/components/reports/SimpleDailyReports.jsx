@@ -62,7 +62,10 @@ const SimpleDailyReports = () => {
         <body>
           <div class="report">
             <div class="header">
-              <h1>Sanctu Point Church</h1>
+              <p style="margin: 0; font-weight: bold;">ROMAN CATHOLIC ARCHBISHOP OF CEBU (RCAC)</p>
+              <h1 style="margin: 5px 0;">ST. FRANCIS OF ASSISI PARISH</h1>
+              <p style="margin: 0; font-size: 14px;">Pili, Madrdejos, Cebu</p>
+              <hr style="margin: 15px 0; border: none; border-top: 1px solid #000;" />
               <h2>Daily Payment Report</h2>
               <h3>${new Date(date).toLocaleDateString('en-PH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</h3>
             </div>
@@ -107,7 +110,7 @@ const SimpleDailyReports = () => {
             
             <div style="margin-top: 40px; text-align: center;">
               <p>Generated on: ${new Date().toLocaleDateString('en-PH')}</p>
-              <p>Sanctu Point Church - Accounting</p>
+              <p>ST. FRANCIS OF ASSISI PARISH - Accounting Department</p>
             </div>
             
             <div style="text-align: center; margin-top: 20px;">
@@ -230,7 +233,7 @@ const SimpleDailyReports = () => {
         )}
       </div>
 
-      <style jsx>{`
+      <style>{`
         .report-controls {
           display: flex;
           gap: 15px;

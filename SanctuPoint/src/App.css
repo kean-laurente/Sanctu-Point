@@ -90,12 +90,6 @@ body {
   text-align: center;
 }
 
-.message.success {
-  background: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
-}
-
 .message.error {
   background: #f8d7da;
   color: #721c24;
@@ -342,6 +336,201 @@ body {
   color: #333;
   margin-bottom: 1.5rem;
   font-size: 2rem;
+}
+
+/* Confirmation modal (used by BookAppointmentPage) */
+.confirm-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1200;
+}
+
+.confirm-modal {
+  background: #fff;
+  padding: 20px;
+  width: min(520px, 94%);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+}
+
+.confirm-modal-message {
+  margin: 0;
+  font-size: 16px;
+  color: #222;
+}
+
+.confirm-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.confirm-btn {
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.08s ease;
+}
+
+.confirm-btn.cancel {
+  background: #fff;
+  border: 1px solid #ccc;
+  color: #333;
+}
+
+.confirm-btn.cancel:hover:not(:disabled) {
+  background: #f3f4f6;
+  transform: translateY(-1px);
+}
+
+.confirm-btn.confirm {
+  background: #0078d4;
+  color: #fff;
+  border: none;
+}
+
+.confirm-btn.confirm:hover:not(:disabled) {
+  background: #005a9e;
+  transform: translateY(-1px);
+}
+
+.confirm-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Success Modal Styles */
+.success-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1300;
+}
+
+.success-modal {
+  background: #fff;
+  padding: 40px 30px;
+  width: min(420px, 94%);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.16);
+  text-align: center;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.success-modal-icon {
+  font-size: 48px;
+  color: #48bb78;
+  font-weight: bold;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  background: #f0fff4;
+  border-radius: 50%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.success-modal-message {
+  margin: 0 0 20px 0;
+  font-size: 16px;
+  color: #2d3748;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+.success-modal-close {
+  padding: 10px 24px;
+  background: #48bb78;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.success-modal-close:hover:not(:disabled) {
+  background: #38a169;
+  transform: translateY(-1px);
+}
+
+.success-modal-close:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Error Modal Styles */
+.error-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1400;
+}
+
+.error-modal {
+  background: #fff;
+  padding: 30px 24px;
+  width: min(420px, 94%);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.16);
+  text-align: center;
+}
+
+.error-modal-icon {
+  font-size: 40px;
+  margin-bottom: 12px;
+}
+
+.error-modal-message {
+  font-size: 15px;
+  color: #2d3748;
+  margin-bottom: 18px;
+}
+
+.error-modal-close {
+  padding: 8px 18px;
+  background: #e53e3e;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.error-modal-close:hover:not(:disabled) {
+  background: #c53030;
+  transform: translateY(-1px);
+}
+
+.error-modal-close:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .blank-page {

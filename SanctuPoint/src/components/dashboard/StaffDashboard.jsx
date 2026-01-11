@@ -434,7 +434,7 @@ const StaffDashboard = ({ user, onLogout }) => {
         )}
       </div>
 
-      <style jsx>{`
+      <style>{`
         .dashboard {
           min-height: 100vh;
           background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);

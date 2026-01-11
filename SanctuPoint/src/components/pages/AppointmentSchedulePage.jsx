@@ -1,25 +1,32 @@
 import { useState, useEffect } from 'react'
 import { appointmentService } from '../../services/appointmentService'
 import { authService } from '../../auth/authService'
-import { printReceipt } from '../../utils/receiptUtils'
-import CalendarView from './CalendarView' // We'll create this component
+import CalendarView from './CalendarView'
+import SuccessModal from '../common/SuccessModal'
+import ErrorModal from '../common/ErrorModal'
+import ReceiptModal from '../common/ReceiptModal'
 
 const AppointmentSchedulePage = () => {
   const [appointments, setAppointments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [showErrorModal, setShowErrorModal] = useState(false)
   const [currentUser, setCurrentUser] = useState(null)
   const [selectedAppointment, setSelectedAppointment] = useState(null)
+  const [showReceiptModal, setShowReceiptModal] = useState(false)
+  const [receiptData, setReceiptData] = useState(null)
+  const [showRequirementModal, setShowRequirementModal] = useState(false)
+  const [requirementUpdates, setRequirementUpdates] = useState({})
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
-  const [viewMode, setViewMode] = useState('list') // 'list' or 'calendar'
+  const [viewMode, setViewMode] = useState('list')
 
   useEffect(() => {
     loadCurrentUser()
   }, [])
 
-  // Load appointments AFTER currentUser is set
   useEffect(() => {
     if (currentUser) {
       loadAppointments()
@@ -34,10 +41,10 @@ const AppointmentSchedulePage = () => {
   const loadAppointments = async () => {
     setLoading(true)
     setError('')
+    setShowErrorModal(false)
     try {
       let result
       
-      // Both admin and staff can see all appointments
       if (currentUser?.role === 'admin' || currentUser?.role === 'staff') {
         result = await appointmentService.getAppointments(currentUser)
       } else {
@@ -48,14 +55,16 @@ const AppointmentSchedulePage = () => {
         setAppointments(result.data)
       } else {
         setError(result.error || 'Failed to load appointments')
+        setShowErrorModal(true)
       }
     } catch (err) {
       console.error('Appointment loading error:', err)
       setError('An error occurred while loading appointments')
+      setShowErrorModal(true)
     } finally {
       setLoading(false)
     }
-  }
+  } 
 
   const updateAppointmentStatus = async (appointmentId, status) => {
     try {
@@ -72,11 +81,14 @@ const AppointmentSchedulePage = () => {
       if (result.success) {
         await loadAppointments()
         setSuccess(`Appointment ${status} successfully!`)
+        setShowSuccessModal(true)
       } else {
         setError(result.error || 'Failed to update appointment')
+        setShowErrorModal(true)
       }
     } catch (err) {
       setError('An error occurred while updating appointment')
+      setShowErrorModal(true)
     }
   }
 
@@ -90,11 +102,14 @@ const AppointmentSchedulePage = () => {
       if (result.success) {
         await loadAppointments()
         setSuccess('Appointment archived successfully!')
+        setShowSuccessModal(true)
       } else {
         setError(result.error || 'Failed to archive appointment')
+        setShowErrorModal(true)
       }
     } catch (err) {
       setError('An error occurred while archiving appointment')
+      setShowErrorModal(true)
     }
   }
 
@@ -102,19 +117,24 @@ const AppointmentSchedulePage = () => {
     try {
       if (!appointment.receipt_number) {
         setError('No receipt found for this appointment')
+        setShowErrorModal(true)
         return
       }
       
       const result = await appointmentService.reprintReceipt(appointment.appointment_id, currentUser)
       
       if (result.success) {
-        printReceipt(result.data)
         setSuccess('Receipt reprinted successfully!')
+        setShowSuccessModal(true)
+        setReceiptData(result.data)
+        setShowReceiptModal(true)
       } else {
         setError(result.error || 'Failed to reprint receipt')
+        setShowErrorModal(true)
       }
     } catch (err) {
       setError('An error occurred while reprinting receipt')
+      setShowErrorModal(true)
     }
   }
 
@@ -214,6 +234,149 @@ const AppointmentSchedulePage = () => {
 
   const statusCounts = getStatusCounts()
 
+  const handleRequirementChange = (requirementId, checked) => {
+    setRequirementUpdates(prev => ({
+      ...prev,
+      [requirementId]: checked
+    }))
+  }
+
+  const saveRequirementUpdates = async () => {
+    if (!selectedAppointment) return
+    
+    try {
+      const updates = []
+      
+      const requirements = selectedAppointment.requirements || []
+      
+      requirements.forEach(req => {
+        if (requirementUpdates.hasOwnProperty(req.requirement_id)) {
+          updates.push({
+            requirement_id: req.requirement_id,
+            is_checked: requirementUpdates[req.requirement_id]
+          })
+        }
+      })
+      
+      console.log('Saving requirement updates:', updates)
+      
+      const result = await appointmentService.updateAppointmentRequirements(
+        selectedAppointment.appointment_id,
+        updates,
+        currentUser
+      )
+      
+      if (result.success) {
+        setSuccess('Requirements updated successfully!')
+        setShowSuccessModal(true)
+        await loadAppointments()
+        setShowRequirementModal(false)
+        setRequirementUpdates({})
+      } else {
+        setError(result.error || 'Failed to update requirements')
+        setShowErrorModal(true)
+      }
+    } catch (err) {
+      console.error('Error saving requirement updates:', err)
+      setError('An error occurred while updating requirements')
+      setShowErrorModal(true)
+    }
+  }
+
+  const openRequirementModal = (appointment) => {
+    console.log('DEBUG openRequirementModal:', {
+      appointment_id: appointment.appointment_id,
+      requirements: appointment.requirements,
+      requirementsCount: appointment.requirements?.length || 0
+    });
+    
+    setSelectedAppointment(appointment);
+    
+    // Initialize updates based on current requirements
+    const initialUpdates = {};
+    
+    // Handle different possible data structures
+    const requirements = appointment.requirements || [];
+    
+    requirements.forEach(req => {
+      const requirementId = req.requirement_id || req.id;
+      if (requirementId) {
+        const isChecked = req.is_checked !== undefined ? req.is_checked : (req.isChecked || false);
+        initialUpdates[requirementId] = isChecked;
+      }
+    });
+    
+    console.log('DEBUG: Initial requirement updates:', initialUpdates);
+    
+    setRequirementUpdates(initialUpdates);
+    setShowRequirementModal(true);
+  }
+
+
+  const renderRequirementsSection = (appointment) => {
+    console.log('DEBUG renderRequirementsSection for appointment:', {
+      appointment_id: appointment.appointment_id,
+      hasRequirements: !!appointment.requirements,
+      requirementsCount: appointment.requirements?.length || 0,
+      requirements: appointment.requirements || [],
+      service_type: appointment.service_type
+    });
+    
+    if (!appointment.requirements || appointment.requirements.length === 0) {
+      console.log('DEBUG: No requirements found for appointment:', appointment.appointment_id);
+      return null;
+    }
+
+    // Ensure requirements have the proper structure
+    const requirements = appointment.requirements.map(req => ({
+      requirement_id: req.requirement_id || `temp-${Math.random()}`,
+      requirement_details: req.requirement_details || req.details || 'Unknown requirement',
+      is_required: req.is_required !== undefined ? req.is_required : (req.isRequired || false),
+      is_checked: req.is_checked !== undefined ? req.is_checked : (req.isChecked || false),
+      is_predefined: req.is_predefined || false
+    }));
+
+    console.log('DEBUG: Processed requirements:', requirements);
+
+    return (
+      <div className="appointment-requirements">
+        <div className="requirements-header">
+          <strong>Requirements Status:</strong>
+          {(currentUser?.role === 'admin' || currentUser?.role === 'staff') && (
+            <button 
+              onClick={() => openRequirementModal(appointment)}
+              className="btn-manage-requirements"
+            >
+              📋 Manage Requirements
+            </button>
+          )}
+        </div>
+        
+        <div className="requirements-list">
+          {requirements.map((req, index) => (
+            <div key={req.requirement_id || index} className={`requirement-item ${req.is_required ? 'required' : 'to-follow'} ${req.is_checked ? 'checked' : ''}`}>
+              <div className="requirement-content">
+                <span className="requirement-details">{req.requirement_details}</span>
+                <span className="requirement-status">
+                  {req.is_required ? (
+                    <span className={`status-badge ${req.is_checked ? 'checked-badge' : 'unchecked-badge'}`}>
+                      {req.is_checked ? '✅ Required & Checked' : '❌ Required - Not Checked'}
+                    </span>
+                  ) : (
+                    <span className={`status-badge ${req.is_checked ? 'checked-badge' : 'unchecked-badge'}`}>
+                      {req.is_checked ? '✅ To be followed & Checked' : '◻️ To be followed - Can check'}
+                    </span>
+                  )}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+
   return (
     <div className="page-container">
       <div className="page-content">
@@ -222,17 +385,19 @@ const AppointmentSchedulePage = () => {
           <p>{currentUser?.role === 'admin' || currentUser?.role === 'staff' ? 'All scheduled appointments' : 'Your scheduled appointments'}</p>
         </div>
 
-        {error && (
-          <div className="message error">
-            {error}
-          </div>
-        )}
+        <ErrorModal isOpen={showErrorModal} onClose={() => setShowErrorModal(false)} />
 
-        {success && (
-          <div className="message success">
-            {success}
-          </div>
-        )}
+        <SuccessModal 
+          message={success} 
+          isOpen={showSuccessModal} 
+          onClose={() => setShowSuccessModal(false)} 
+        />
+
+        <ReceiptModal 
+          appointment={receiptData} 
+          isOpen={showReceiptModal} 
+          onClose={() => setShowReceiptModal(false)} 
+        />
 
         {/* View Mode Toggle */}
         <div className="view-mode-toggle">
@@ -311,6 +476,102 @@ const AppointmentSchedulePage = () => {
           </div>
         )}
 
+        {showRequirementModal && selectedAppointment && (
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h3>Manage Requirements</h3>
+                <button 
+                  onClick={() => setShowRequirementModal(false)}
+                  className="close-modal"
+                >
+                  ×
+                </button>
+              </div>
+              
+              <div className="modal-body">
+                <div className="appointment-info">
+                  <h4>{selectedAppointment.service_type}</h4>
+                  <p>Date: {formatDate(selectedAppointment.date)}</p>
+                  <p>Time: {formatTime(selectedAppointment.time)}</p>
+                  <p>Customer: {selectedAppointment.customer_first_name} {selectedAppointment.customer_last_name}</p>
+                </div>
+                
+                <div className="requirements-management">
+                  <h4>Requirements Management</h4>
+                  
+                  {(!selectedAppointment.requirements || selectedAppointment.requirements.length === 0) ? (
+                    <div className="no-requirements-message">
+                      <p>No requirements found for this appointment.</p>
+                      <p>If this service has requirements, they may not have been saved properly during booking.</p>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="instructions">
+                        <strong>Instructions:</strong><br/>
+                        • Required items: Once checked, cannot be unchecked<br/>
+                        • To be followed items: Can be checked/unchecked as needed<br/>
+                        • Click Save Changes to update the requirement status
+                      </p>
+                      
+                      <div className="requirements-checkboxes">
+                        {selectedAppointment.requirements.map((req, index) => {
+                          const requirementId = req.requirement_id || `temp-${index}`;
+                          const isRequired = req.is_required !== undefined ? req.is_required : (req.isRequired || false);
+                          const isChecked = req.is_checked !== undefined ? req.is_checked : (req.isChecked || false);
+                          const details = req.requirement_details || req.details || 'Unknown requirement';
+                          
+                          return (
+                            <div key={requirementId} className="management-requirement-item">
+                              <label className="management-requirement-label">
+                                <input
+                                  type="checkbox"
+                                  checked={requirementUpdates[requirementId] !== undefined ? requirementUpdates[requirementId] : isChecked}
+                                  onChange={(e) => handleRequirementChange(requirementId, e.target.checked)}
+                                  disabled={isRequired && isChecked}
+                                  className="management-checkbox"
+                                />
+                                <span className={`management-requirement-text ${isRequired ? 'required' : 'to-follow'}`}>
+                                  {details}
+                                  <span className="management-requirement-type">
+                                    {isRequired 
+                                      ? ' (Required - Cannot uncheck if checked)' 
+                                      : ' (To be followed - Can check/uncheck)'}
+                                  </span>
+                                </span>
+                              </label>
+                              
+                              <div className="current-status">
+                                Current: {isChecked ? '✅ Checked' : '◻️ Not Checked'}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+              
+              <div className="modal-actions">
+                <button 
+                  onClick={saveRequirementUpdates}
+                  className="btn-save-requirements"
+                  disabled={Object.keys(requirementUpdates).length === 0 || !selectedAppointment.requirements || selectedAppointment.requirements.length === 0}
+                >
+                  Save Changes
+                </button>
+                <button 
+                  onClick={() => setShowRequirementModal(false)}
+                  className="btn-cancel"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="loading-state">
             <div className="loading-spinner"></div>
@@ -325,14 +586,6 @@ const AppointmentSchedulePage = () => {
           <div className="empty-state">
             <h3>No Appointments Scheduled</h3>
             <p>There are no appointments to display at the moment.</p>
-            {(currentUser?.role === 'admin' || currentUser?.role === 'staff') && (
-              <button 
-                onClick={() => window.location.href = '#book-appointment'}
-                className="btn-primary"
-              >
-                Book New Appointment
-              </button>
-            )}
           </div>
         ) : (
           <div className="appointments-list">
@@ -373,7 +626,6 @@ const AppointmentSchedulePage = () => {
                       <p><strong>Service Fee:</strong> ₱{servicePrice.toFixed(2)}</p>
                     )}
                     
-                    {/* Customer Information - Show for both admin and regular users */}
                     <div className="customer-info">
                       <p><strong>Customer:</strong> {appointment.customer_first_name} {appointment.customer_last_name}</p>
                       <p><strong>Email:</strong> {appointment.customer_email}</p>
@@ -405,25 +657,9 @@ const AppointmentSchedulePage = () => {
                       </div>
                     )}
 
-                    {/* Additional admin/staff information */}
-                    {(currentUser?.role === 'admin' || currentUser?.role === 'staff') && appointment.users && (
-                      <div className="admin-info">
-                        <p><strong>Booked by:</strong> {appointment.users.first_name} {appointment.users.last_name} ({appointment.users.email})</p>
-                      </div>
-                    )}
+                    {/* Requirements Section - THIS IS WHERE IT'S BEING USED */}
+                    {renderRequirementsSection(appointment)}
                   </div>
-
-                  {/* Requirements Section */}
-                  {appointment.requirements && appointment.requirements.length > 0 && (
-                    <div className="appointment-requirements">
-                      <strong>Requirements:</strong>
-                      <ul>
-                        {appointment.requirements.map((req, index) => (
-                          <li key={index}>{req.requirement_details}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
 
                   <div className="appointment-actions">
                     {(currentUser?.role === 'admin' || currentUser?.role === 'staff') && appointment.status === 'pending' && (
@@ -480,7 +716,7 @@ const AppointmentSchedulePage = () => {
         )}
       </div>
 
-      <style jsx>{`
+      <style>{`
         .page-container {
           padding: 20px;
           max-width: 1400px;
@@ -1101,6 +1337,346 @@ const AppointmentSchedulePage = () => {
             font-size: 14px;
           }
         }
+
+        .appointment-requirements {
+          margin: 20px 0;
+          padding: 20px;
+          background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+          border-radius: 10px;
+          border-left: 5px solid #f59e0b;
+        }
+
+        .requirement-status {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 10px;
+          margin: 8px 0;
+          background: white;
+          border-radius: 6px;
+          border-left: 4px solid #f59e0b;
+        }
+
+        .requirement-status.required {
+          border-left-color: #ef4444;
+          background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+        }
+
+        .requirement-status.to-follow {
+          border-left-color: #3b82f6;
+          background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        }
+
+        .requirement-name {
+          font-weight: 600;
+          color: #1e293b;
+          flex: 1;
+        }
+
+        .status-indicator {
+          font-size: 14px;
+          font-weight: 500;
+          padding: 4px 12px;
+          border-radius: 20px;
+          margin-left: 10px;
+        }
+
+        .status-indicator.checked {
+          background: #dcfce7;
+          color: #166534;
+        }
+
+        .status-indicator.unchecked {
+          background: #f1f5f9;
+          color: #64748b;
+        }
+
+        .required-text {
+          color: #dc2626;
+        }
+
+        .to-follow-text {
+          color: #1d4ed8;
+        }
+
+        .btn-manage-requirements {
+          margin-top: 15px;
+          padding: 10px 20px;
+          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+          color: white;
+          border: none;
+          border-radius: 8px;
+          cursor: pointer;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          transition: all 0.3s;
+        }
+
+        .btn-manage-requirements:hover {
+          background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          padding: 20px;
+        }
+
+        .modal-content {
+          background: white;
+          border-radius: 12px;
+          width: 100%;
+          max-width: 600px;
+          max-height: 90vh;
+          overflow-y: auto;
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .modal-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 24px;
+          border-bottom: 2px solid #f1f5f9;
+        }
+
+        .modal-header h3 {
+          margin: 0;
+          color: #1e293b;
+          font-size: 24px;
+        }
+
+        .close-modal {
+          background: none;
+          border: none;
+          font-size: 28px;
+          cursor: pointer;
+          color: #64748b;
+          width: 40px;
+          height: 40px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 50%;
+          transition: all 0.2s;
+        }
+
+        .close-modal:hover {
+          background: #f1f5f9;
+          color: #1e293b;
+        }
+
+        .modal-body {
+          padding: 24px;
+        }
+
+        .appointment-info {
+          margin-bottom: 24px;
+          padding: 20px;
+          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+          border-radius: 10px;
+          border-left: 5px solid #3b82f6;
+        }
+
+        .appointment-info h4 {
+          margin: 0 0 12px 0;
+          color: #1e293b;
+          font-size: 18px;
+        }
+
+        .requirements-management h4 {
+          margin: 0 0 16px 0;
+          color: #1e293b;
+          font-size: 18px;
+        }
+
+        .management-requirement-item {
+          background: white;
+          border-radius: 8px;
+          padding: 16px;
+          margin-bottom: 12px;
+          border: 2px solid #e2e8f0;
+          transition: all 0.2s;
+        }
+
+        .management-requirement-item:hover {
+          border-color: #9f7aea;
+        }
+
+        .management-requirement-label {
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+          cursor: pointer;
+          width: 100%;
+          margin-bottom: 8px;
+        }
+
+        .management-checkbox {
+          width: 20px;
+          height: 20px;
+          margin-top: 2px;
+          accent-color: #9f7aea;
+        }
+
+        .management-requirement-text {
+          flex: 1;
+          color: #2d3748;
+          font-size: 15px;
+          line-height: 1.5;
+          font-weight: 500;
+        }
+
+        .management-requirement-text.required {
+          color: #dc2626;
+        }
+
+        .management-requirement-text.to-follow {
+          color: #2563eb;
+        }
+
+        .management-requirement-type {
+          display: block;
+          color: #718096;
+          font-size: 13px;
+          font-weight: 400;
+          margin-top: 4px;
+        }
+
+        .current-status {
+          padding: 8px 12px;
+          background: #f1f5f9;
+          border-radius: 6px;
+          font-size: 14px;
+          color: #475569;
+          font-weight: 500;
+        }
+
+        .modal-actions {
+          display: flex;
+          gap: 12px;
+          padding: 24px;
+          border-top: 2px solid #f1f5f9;
+        }
+
+        .btn-save-requirements {
+          flex: 1;
+          padding: 14px;
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          color: white;
+          border: none;
+          border-radius: 10px;
+          cursor: pointer;
+          font-size: 16px;
+          font-weight: 600;
+          transition: all 0.3s;
+        }
+
+        .btn-save-requirements:hover {
+          background: linear-gradient(135deg, #059669 0%, #047857 100%);
+          transform: translateY(-2px);
+          box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-cancel {
+          flex: 1;
+          padding: 14px;
+          background: #f1f5f9;
+          color: #475569;
+          border: 2px solid #e2e8f0;
+          border-radius: 10px;
+          cursor: pointer;
+          font-size: 16px;
+          font-weight: 600;
+          transition: all 0.2s;
+        }
+
+        .btn-cancel:hover {
+          background: #e2e8f0;
+          color: #1e293b;
+        }
+
+        @media (max-width: 768px) {
+          .modal-content {
+            max-width: 95%;
+          }
+          
+          .modal-actions {
+            flex-direction: column;
+          }
+          
+          .management-requirement-label {
+            flex-direction: column;
+            gap: 8px;
+          }
+        }
+
+        .requirement-item.required.checked {
+        border-left-color: #10b981;
+        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+      }
+
+      .requirement-item.to-follow.checked {
+        border-left-color: #10b981;
+        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+      }
+
+      .checked-badge {
+        background: #10b981;
+        color: white;
+        border: 1px solid #059669;
+      }
+
+      .unchecked-badge {
+        background: #f1f5f9;
+        color: #64748b;
+        border: 1px solid #e2e8f0;
+      }
+
+      .required-badge.unchecked-badge {
+        background: #fee2e2;
+        color: #991b1b;
+        border: 1px solid #fca5a5;
+      }
+
+      .tofollow-badge.unchecked-badge {
+        background: #dbeafe;
+        color: #1e40af;
+        border: 1px solid #93c5fd;
+      }
+
+      .btn-save-requirements:disabled {
+        background: #cbd5e0;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+
+      .no-requirements-message {
+      padding: 20px;
+      background: #fef3c7;
+      border-radius: 8px;
+      border-left: 4px solid #f59e0b;
+      color: #92400e;
+      text-align: center;
+    }
+
+    .no-requirements-message p {
+      margin: 8px 0;
+    }
       `}</style>
     </div>
   )
