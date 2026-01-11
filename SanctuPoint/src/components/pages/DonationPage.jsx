@@ -73,33 +73,26 @@ const DonationPage = () => {
     const { name, value } = e.target
     let newValue = value
     
-    // Real-time cleaning for donor name - OPTIONAL
     if (name === 'donor_name') {
-      // Apply cleaning first (removes special characters and numbers)
       newValue = donationService.cleanDonorName(value)
       
-      // Real-time validation (name is optional)
       const validation = donationService.validateDonorName(newValue)
       setValidationErrors(prev => ({
         ...prev,
         donor_name: validation.isValid ? '' : validation.message
       }))
     }
-    // Real-time cleaning for amount - MAX 50,000
     else if (name === 'amount') {
-      // Allow only numbers and one decimal point
       newValue = value.replace(/[^0-9.]/g, '')
       const parts = newValue.split('.')
       newValue = parts.length > 2 
         ? parts[0] + '.' + parts.slice(1).join('')
         : newValue
       
-      // If value exceeds 50000, cap it at 50000
       if (newValue && parseFloat(newValue) > 50000) {
         newValue = '50000'
       }
       
-      // Real-time validation
       const validation = donationService.validateAmount(newValue)
       setValidationErrors(prev => ({
         ...prev,
@@ -120,11 +113,8 @@ const DonationPage = () => {
     setSuccess('')
     setValidationErrors({ donor_name: '', amount: '' })
 
-    // Use service validation functions
     const nameValidation = donationService.validateDonorName(formData.donor_name)
     const amountValidation = donationService.validateAmount(formData.amount)
-
-    // Only validate amount (donor name is optional)
     if (!amountValidation.isValid) {
       setValidationErrors({
         donor_name: nameValidation.isValid ? '' : nameValidation.message,
@@ -134,14 +124,12 @@ const DonationPage = () => {
       return
     }
 
-    // Clean the data before submission
     const cleanedData = {
-      donor_name: donationService.cleanDonorName(formData.donor_name) || null, // Can be null/empty
+      donor_name: donationService.cleanDonorName(formData.donor_name) || null,
       amount: donationService.cleanAmount(formData.amount),
       description: formData.description ? formData.description.trim() : ''
     }
 
-    // Final validation check for amount
     if (parseFloat(cleanedData.amount) > 50000) {
       setError('Amount cannot exceed ₱50,000')
       setLoading(false)
@@ -165,7 +153,6 @@ const DonationPage = () => {
       } else {
         setError(result.error || 'Failed to record donation')
         if (result.validationErrors) {
-          // Show validation errors from service
           setError(result.validationErrors.join('. '))
         }
       }
@@ -196,7 +183,6 @@ const DonationPage = () => {
   }
 
   const isFormValid = () => {
-    // Only amount is required, donor name is optional
     const amountValid = donationService.validateAmount(formData.amount).isValid
     return amountValid
   }
@@ -952,7 +938,6 @@ const DonationPage = () => {
           font-style: italic;
         }
 
-        /* Responsive Styles */
         @media (max-width: 1024px) {
           .page-content {
             padding: 25px;

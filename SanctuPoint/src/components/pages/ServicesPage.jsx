@@ -91,13 +91,11 @@ const ServicesPage = () => {
       const index = currentDays.indexOf(dayValue)
       
       if (index > -1) {
-        // Remove day if already selected
         return {
           ...prev,
           allowed_days: currentDays.filter(d => d !== dayValue)
         }
       } else {
-        // Add day
         return {
           ...prev,
           allowed_days: [...currentDays, dayValue].sort((a, b) => a - b)
@@ -151,17 +149,14 @@ const ServicesPage = () => {
       }
     }
     
-    // Validate duration
     if (!formData.duration_minutes || formData.duration_minutes <= 0) {
       errors.push('Duration must be greater than 0 minutes')
     }
     
-    // Validate allowed days
     if (formData.allowed_days.length === 0) {
       errors.push('At least one day must be selected')
     }
     
-    // Validate consecutive days
     if (formData.requires_multiple_days && (!formData.consecutive_days || formData.consecutive_days <= 0)) {
       errors.push('Number of consecutive days must be specified for multi-day services')
     }
@@ -170,13 +165,11 @@ const ServicesPage = () => {
       errors.push('Consecutive days cannot exceed 30')
     }
     
-    // Validate requirements
     const validRequirements = formData.requirements.filter(req => req.details.trim() !== '')
     if (validRequirements.length === 0 && formData.requirements.some(req => req.details.trim() !== '')) {
       errors.push('Requirements must have details if added')
     }
     
-    // Check for duplicate service names (case-insensitive)
     const serviceNameLower = formData.service_name.trim().toLowerCase()
     const existingService = services.find(s => 
       s.service_name.toLowerCase() === serviceNameLower && 
@@ -202,7 +195,6 @@ const ServicesPage = () => {
     }
 
     try {
-      // Filter out empty requirements
       const filteredRequirements = formData.requirements.filter(req => req.details.trim() !== '')
       
       const submitData = {
@@ -259,7 +251,6 @@ const ServicesPage = () => {
 
   const handleEdit = (service) => {
     setEditingService(service)
-    // Fetch service requirements for editing
     servicesService.getServiceRequirements(service.service_id).then(result => {
       if (result.success) {
         const requirements = result.data.length > 0 
@@ -465,7 +456,6 @@ const ServicesPage = () => {
                       />
                       <span className="unit">minutes</span>
                     </div>
-                    {/* <small className="hint">How long the service takes (e.g., Funeral Mass: 90 min)</small> */}
                   </div>
 
                   <div className="form-group">
@@ -541,30 +531,6 @@ const ServicesPage = () => {
                     </small>
                   </div>
                 </div>
-
-                {/* <div className="duration-presets">
-                  <p className="presets-label">Quick presets from your list:</p>
-                  <div className="preset-buttons">
-                    <button type="button" onClick={() => setFormData(prev => ({...prev, duration_minutes: 90}))} className="preset-btn">
-                      Funeral Mass (90m)
-                    </button>
-                    <button type="button" onClick={() => setFormData(prev => ({...prev, duration_minutes: 60}))} className="preset-btn">
-                      Wake Mass (60m)
-                    </button>
-                    <button type="button" onClick={() => setFormData(prev => ({...prev, duration_minutes: 45}))} className="preset-btn">
-                      Rosary Mass (45m)
-                    </button>
-                    <button type="button" onClick={() => setFormData(prev => ({...prev, duration_minutes: 120}))} className="preset-btn">
-                      Baptism Group (120m)
-                    </button>
-                    <button type="button" onClick={() => setFormData(prev => ({...prev, duration_minutes: 75, allowed_days: [4]}))} className="preset-btn">
-                      Wedding (Thu 75m)
-                    </button>
-                    <button type="button" onClick={() => setFormData(prev => ({...prev, duration_minutes: 480, requires_multiple_days: true, consecutive_days: 2}))} className="preset-btn">
-                      Pre-Cana (8h × 2d)
-                    </button>
-                  </div>
-                </div> */}
               </div>
 
               <div className="form-section requirements-section">
@@ -664,31 +630,6 @@ const ServicesPage = () => {
           </div>
         ) : (
           <>
-            {/* <div className="services-summary">
-              <div className="summary-card">
-                <span className="summary-label">Total Services</span>
-                <span className="summary-value">{services.length}</span>
-              </div>
-              <div className="summary-card">
-                <span className="summary-label">Average Duration</span>
-                <span className="summary-value">
-                  {formatDuration(Math.round(services.reduce((sum, s) => sum + (s.duration_minutes || 0), 0) / services.length))}
-                </span>
-              </div>
-              <div className="summary-card">
-                <span className="summary-label">Multi-day Services</span>
-                <span className="summary-value">
-                  {services.filter(s => s.requires_multiple_days).length}
-                </span>
-              </div>
-              <div className="summary-card">
-                <span className="summary-label">Concurrent Allowed</span>
-                <span className="summary-value">
-                  {services.filter(s => s.allow_concurrent).length}
-                </span>
-              </div>
-            </div> */}
-
             <div className="services-grid">
               {services.map(service => (
                 <div key={service.service_id} className="service-card">
@@ -1268,7 +1209,6 @@ const ServicesPage = () => {
           line-height: 1.4;
         }
 
-        /* Form Actions */
         .form-actions {
           display: flex;
           gap: 16px;
@@ -1334,7 +1274,6 @@ const ServicesPage = () => {
           100% { transform: rotate(360deg); }
         }
 
-        /* Empty State */
         .empty-state {
           text-align: center;
           padding: 60px 20px;
@@ -1358,7 +1297,6 @@ const ServicesPage = () => {
           font-size: 15px;
         }
 
-        /* Services Summary */
         .services-summary {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));

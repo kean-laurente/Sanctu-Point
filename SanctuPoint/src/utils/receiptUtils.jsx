@@ -1,4 +1,3 @@
-// Helper function to format duration
 const formatDuration = (minutes) => {
   if (!minutes) return 'N/A';
   if (minutes < 60) return `${minutes} min`;
@@ -7,7 +6,6 @@ const formatDuration = (minutes) => {
   return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 };
 
-// Format Philippine Peso currency
 const formatCurrency = (amount) => {
   if (amount === undefined || amount === null) return '₱0.00';
   
@@ -18,7 +16,6 @@ const formatCurrency = (amount) => {
   }).format(amount);
 };
 
-// Format date to local string
 const formatDate = (dateString) => {
   if (!dateString) return '';
   const date = new Date(dateString);
@@ -29,7 +26,6 @@ const formatDate = (dateString) => {
   });
 };
 
-// Format time to local string
 const formatTime = (timeString) => {
   if (!timeString) return '';
   const [hours, minutes] = timeString.split(':');
@@ -42,34 +38,26 @@ const formatTime = (timeString) => {
   });
 };
 
-// Calculate totals correctly
 const calculateTotals = (appointment) => {
-  // Service total
   const serviceTotal = appointment.payment_amount || 0;
   
-  // Offering total
   let offeringTotal = 0;
   if (appointment.offering_total !== undefined) {
-    // Use the pre-calculated offering_total from database
     offeringTotal = appointment.offering_total;
   } else if (appointment.appointment_products) {
-    // Calculate from appointment_products
     offeringTotal = appointment.appointment_products.reduce(
       (sum, item) => sum + (item.total_price || 0), 
       0
     );
   } else if (appointment.offerings) {
-    // Calculate from offerings
     offeringTotal = appointment.offerings.reduce(
       (sum, item) => sum + (item.total_price || (item.quantity * item.unit_price) || 0), 
       0
     );
   }
   
-  // Grand total
   const grandTotal = serviceTotal + offeringTotal;
   
-  // Amount paid and change
   const amountPaid = appointment.amount_paid || 0;
   const changeAmount = Math.max(0, amountPaid - grandTotal);
   
@@ -82,7 +70,6 @@ const calculateTotals = (appointment) => {
   };
 };
 
-// Generate receipt content
 export const generateReceiptContent = (appointment) => {
   const now = new Date();
   const printDate = now.toLocaleDateString('en-PH');
@@ -92,7 +79,6 @@ export const generateReceiptContent = (appointment) => {
     hour12: true
   });
   
-  // Calculate totals CORRECTLY
   const { 
     serviceTotal, 
     offeringTotal, 
@@ -101,11 +87,9 @@ export const generateReceiptContent = (appointment) => {
     changeAmount 
   } = calculateTotals(appointment);
   
-  // Get service duration
   const serviceDuration = appointment.service_duration || appointment.services?.duration_minutes || 60;
   const durationText = formatDuration(serviceDuration);
   
-  // Header
   let content = '================================\n';
   content += 'ROMAN CATHOLIC ARCHBISHOP OF CEBU (RCAC)\n';
   content += 'ST. FRANCIS OF ASSISI PARISH\n';
@@ -116,7 +100,6 @@ export const generateReceiptContent = (appointment) => {
   content += `Receipt: ${appointment.receipt_number || 'N/A'}\n`;
   content += '--------------------------------\n';
   
-  // Customer Information
   content += 'CUSTOMER INFORMATION\n';
   content += '--------------------------------\n';
   content += `Name: ${appointment.customer_first_name || ''} ${appointment.customer_last_name || ''}\n`;
@@ -126,7 +109,6 @@ export const generateReceiptContent = (appointment) => {
   }
   content += '--------------------------------\n';
   
-  // Service Information
   content += 'SERVICE DETAILS\n';
   content += '--------------------------------\n';
   content += `Service: ${appointment.service_type || 'N/A'}\n`;
@@ -135,17 +117,14 @@ export const generateReceiptContent = (appointment) => {
   content += `Time: ${formatTime(appointment.appointment_time)}\n`;
   content += '--------------------------------\n';
   
-  // Items
   content += 'ITEMS\n';
   content += '--------------------------------\n';
   
-  // Service Fee
   if (serviceTotal > 0) {
     content += `${appointment.service_type || 'Service'}\n`;
     content += `  ${formatCurrency(serviceTotal)}\n`;
   }
   
-  // Offerings
   const offerings = appointment.appointment_products || appointment.offerings || [];
   if (offerings.length > 0) {
     offerings.forEach((item, index) => {
@@ -159,7 +138,6 @@ export const generateReceiptContent = (appointment) => {
     });
   }
   
-  // Summary - CORRECT CALCULATIONS
   content += '--------------------------------\n';
   content += 'SUMMARY\n';
   content += '--------------------------------\n';
@@ -177,14 +155,12 @@ export const generateReceiptContent = (appointment) => {
   content += `Change: ${formatCurrency(changeAmount)}\n`;
   content += '--------------------------------\n';
   
-  // Payment Method
   content += 'PAYMENT METHOD\n';
   content += '--------------------------------\n';
   content += `Method: ${appointment.payment_method || 'Cash'}\n`;
   content += `Status: ${appointment.payment_status || 'Paid'}\n`;
   content += '--------------------------------\n';
   
-  // Footer
   content += 'THANK YOU FOR YOUR SUPPORT!\n';
   content += 'May God bless you abundantly.\n';
   content += '================================\n';
@@ -194,13 +170,10 @@ export const generateReceiptContent = (appointment) => {
   return content;
 };
 
-// Print receipt using browser print dialog
 export const printReceipt = (appointment) => {
   try {
-    // Generate receipt content
     const receiptContent = generateReceiptContent(appointment);
     
-    // Create a printable window
     const printWindow = window.open('', '_blank', 'width=800,height=600');
     
     if (!printWindow) {
@@ -209,7 +182,6 @@ export const printReceipt = (appointment) => {
       return;
     }
     
-    // Get current date and time
     const now = new Date();
     const printDate = now.toLocaleDateString('en-PH');
     const printTime = now.toLocaleTimeString('en-PH', {
@@ -218,11 +190,9 @@ export const printReceipt = (appointment) => {
       hour12: true
     });
     
-    // Get service duration
     const serviceDuration = appointment.service_duration || appointment.services?.duration_minutes || 60;
     const durationText = formatDuration(serviceDuration);
     
-    // Calculate totals CORRECTLY
     const { 
       serviceTotal, 
       offeringTotal, 
@@ -231,7 +201,6 @@ export const printReceipt = (appointment) => {
       changeAmount 
     } = calculateTotals(appointment);
     
-    // Create printable HTML with CORRECT calculations
     const htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -589,13 +558,11 @@ export const printReceipt = (appointment) => {
       </html>
     `;
     
-    // Try to automatically generate a PDF and download using html2canvas + jsPDF
     const tryAutoPdf = async () => {
       try {
         const { default: html2canvas } = await import('html2canvas');
         const { jsPDF } = await import('jspdf');
 
-        // Create a hidden iframe to render the receipt HTML (preserves head styles)
         const iframe = document.createElement('iframe');
         iframe.style.position = 'fixed';
         iframe.style.left = '-9999px';
@@ -606,7 +573,6 @@ export const printReceipt = (appointment) => {
         idoc.write(htmlContent);
         idoc.close();
 
-        // Wait for resources to load
         await new Promise((resolve) => {
           iframe.onload = () => setTimeout(resolve, 250);
         });
@@ -622,7 +588,6 @@ export const printReceipt = (appointment) => {
         const filename = `${appointment.receipt_number || 'receipt'}.pdf`;
         pdf.save(filename);
 
-        // cleanup
         document.body.removeChild(iframe);
         return true;
       } catch (err) {
@@ -631,11 +596,9 @@ export const printReceipt = (appointment) => {
       }
     };
 
-    // Attempt auto PDF; if it fails, fall back to printable window
     return tryAutoPdf().then(success => {
       if (success) return true;
 
-      // Write content to window and open print dialog as fallback
       printWindow.document.write(htmlContent);
       printWindow.document.close();
       printWindow.focus();
@@ -650,10 +613,8 @@ export const printReceipt = (appointment) => {
   } catch (error) {
     console.error('Error printing receipt:', error);
     
-    // Fallback to alert with receipt content
     const receiptContent = generateReceiptContent(appointment);
     
-    // Create a simple popup with the receipt
     const fallbackWindow = window.open('', '_blank', 'width=400,height=600');
     if (fallbackWindow) {
       fallbackWindow.document.write(`
@@ -694,7 +655,6 @@ export const printReceipt = (appointment) => {
       `);
       fallbackWindow.document.close();
     } else {
-      // Last resort - alert
       alert(`Receipt generated:\n\n${receiptContent}\n\nPlease take a screenshot or copy this receipt.`);
     }
     
@@ -702,7 +662,6 @@ export const printReceipt = (appointment) => {
   }
 };
 
-// Generate receipt for standalone offerings
 export const generateOfferingReceipt = (offeringData) => {
   const now = new Date();
   const printDate = now.toLocaleDateString('en-PH');
@@ -774,10 +733,8 @@ export const generateOfferingReceipt = (offeringData) => {
   return content;
 };
 
-// Print offering receipt
 export const printOfferingReceipt = (offeringData) => {
   try {
-    // Create appointment-like object for consistency
     const appointmentData = {
       receipt_number: offeringData.receipt_number,
       service_type: 'Offering Only',
@@ -814,5 +771,4 @@ export const printOfferingReceipt = (offeringData) => {
   }
 };
 
-// Export helper functions for use elsewhere
 export { formatDuration, formatCurrency, formatDate, formatTime, calculateTotals };

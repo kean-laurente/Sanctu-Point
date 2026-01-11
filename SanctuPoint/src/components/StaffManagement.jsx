@@ -16,7 +16,6 @@ const StaffManagement = ({ currentUser, onStaffUpdate }) => {
     password: ''
   });
 
-  // Admin Profile State
   const [adminProfile, setAdminProfile] = useState({
     username: '',
     first_name: '',
@@ -25,7 +24,6 @@ const StaffManagement = ({ currentUser, onStaffUpdate }) => {
     phone_number: ''
   });
   
-  // Admin Password Change State
   const [passwordChange, setPasswordChange] = useState({
     currentPassword: '',
     newPassword: '',
@@ -37,7 +35,6 @@ const StaffManagement = ({ currentUser, onStaffUpdate }) => {
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileMessage, setProfileMessage] = useState('');
   
-  // Staff Editing State
   const [editingStaff, setEditingStaff] = useState(null);
   const [staffEditForm, setStaffEditForm] = useState({
     username: '',
@@ -47,17 +44,14 @@ const StaffManagement = ({ currentUser, onStaffUpdate }) => {
     phone_number: ''
   });
 
-  // Updated phone validation - only numbers allowed
   const isValidPhilippineNumber = (phone) => {
     if (!phone) return true;
-    // Remove all non-numeric characters (just in case)
     const clean = phone.replace(/[^\d]/g, '');
-    // Philippine numbers: 09XXXXXXXXX (11 digits) or 9XXXXXXXXX (10 digits)
     return /^(09\d{9}|9\d{9})$/.test(clean);
   };
 
   const validatePhoneNumber = (phone) => {
-    if (!phone) return null; // Phone is optional
+    if (!phone) return null; 
     
     const clean = phone.replace(/[^\d]/g, '');
     
@@ -119,7 +113,6 @@ const StaffManagement = ({ currentUser, onStaffUpdate }) => {
     setLoading(true);
     setMessage('');
     
-    // Validate all required fields
     if (!formData.username || !formData.first_name || !formData.last_name || 
         !formData.email || !formData.password) {
       setMessage('Please fill in all required fields');
@@ -127,7 +120,6 @@ const StaffManagement = ({ currentUser, onStaffUpdate }) => {
       return;
     }
 
-    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       setMessage('Please enter a valid email address');
@@ -135,7 +127,6 @@ const StaffManagement = ({ currentUser, onStaffUpdate }) => {
       return;
     }
 
-    // Phone validation
     if (formData.phone_number) {
       const phoneError = validatePhoneNumber(formData.phone_number);
       if (phoneError) {
@@ -145,7 +136,6 @@ const StaffManagement = ({ currentUser, onStaffUpdate }) => {
       }
     }
 
-    // Password validation
     const passwordError = validatePassword(formData.password);
     if (passwordError) {
       setMessage(`Password error: ${passwordError}`);
@@ -153,7 +143,6 @@ const StaffManagement = ({ currentUser, onStaffUpdate }) => {
       return;
     }
 
-    // Prepare data for submission (clean phone number)
     const submissionData = {
       ...formData,
       phone_number: formData.phone_number ? formData.phone_number.replace(/[^\d]/g, '') : ''
@@ -201,14 +190,12 @@ const StaffManagement = ({ currentUser, onStaffUpdate }) => {
       return;
     }
 
-    // Validate form
     const errors = [];
     
     if (!staffEditForm.username.trim()) errors.push('Username is required');
     if (!staffEditForm.first_name.trim()) errors.push('First name is required');
     if (!staffEditForm.last_name.trim()) errors.push('Last name is required');
     
-    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!staffEditForm.email.trim()) {
       errors.push('Email is required');
@@ -216,7 +203,6 @@ const StaffManagement = ({ currentUser, onStaffUpdate }) => {
       errors.push('Please enter a valid email address');
     }
     
-    // Phone validation (optional)
     if (staffEditForm.phone_number && staffEditForm.phone_number.trim()) {
       const phoneError = validatePhoneNumber(staffEditForm.phone_number);
       if (phoneError) errors.push(phoneError);
@@ -229,11 +215,9 @@ const StaffManagement = ({ currentUser, onStaffUpdate }) => {
     }
 
     try {
-      // Clean phone number
       const cleanedPhone = staffEditForm.phone_number ? 
         staffEditForm.phone_number.replace(/[^\d]/g, '') : '';
 
-      // Update staff in database
       const { error } = await supabase
         .from('users')
         .update({
@@ -268,14 +252,12 @@ const StaffManagement = ({ currentUser, onStaffUpdate }) => {
     setProfileLoading(true);
     setProfileMessage('');
 
-    // Validate form
     const errors = [];
     
     if (!adminProfile.username.trim()) errors.push('Username is required');
     if (!adminProfile.first_name.trim()) errors.push('First name is required');
     if (!adminProfile.last_name.trim()) errors.push('Last name is required');
     
-    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!adminProfile.email.trim()) {
       errors.push('Email is required');
@@ -283,7 +265,6 @@ const StaffManagement = ({ currentUser, onStaffUpdate }) => {
       errors.push('Please enter a valid email address');
     }
     
-    // Phone validation (optional)
     if (adminProfile.phone_number && adminProfile.phone_number.trim()) {
       const phoneError = validatePhoneNumber(adminProfile.phone_number);
       if (phoneError) errors.push(phoneError);
@@ -296,11 +277,9 @@ const StaffManagement = ({ currentUser, onStaffUpdate }) => {
     }
 
     try {
-      // Clean phone number
       const cleanedPhone = adminProfile.phone_number ? 
         adminProfile.phone_number.replace(/[^\d]/g, '') : '';
 
-      // Update admin in database
       const { error } = await supabase
         .from('users')
         .update({
@@ -318,7 +297,6 @@ const StaffManagement = ({ currentUser, onStaffUpdate }) => {
         throw error;
       }
 
-      // Update local storage user session
       const updatedUser = {
         ...currentUser,
         username: adminProfile.username,
@@ -331,7 +309,6 @@ const StaffManagement = ({ currentUser, onStaffUpdate }) => {
 
       localStorage.setItem('user', JSON.stringify(updatedUser));
       
-      // Update parent component
       onStaffUpdate?.();
       
       setProfileMessage('Profile updated successfully!');
@@ -350,7 +327,6 @@ const StaffManagement = ({ currentUser, onStaffUpdate }) => {
     setProfileLoading(true);
     setProfileMessage('');
 
-    // Validate password change
     const errors = [];
     
     if (!passwordChange.currentPassword) {
@@ -377,7 +353,6 @@ const StaffManagement = ({ currentUser, onStaffUpdate }) => {
     }
 
     try {
-      // Verify current password
       const { data: user, error: verifyError } = await supabase
         .from('users')
         .select('*')
@@ -391,7 +366,6 @@ const StaffManagement = ({ currentUser, onStaffUpdate }) => {
         return;
       }
 
-      // Update password
       const { error: updateError } = await supabase
         .from('users')
         .update({
@@ -421,7 +395,6 @@ const StaffManagement = ({ currentUser, onStaffUpdate }) => {
   };
 
   const handleCancelProfileEdit = () => {
-    // Reset to original values
     setAdminProfile({
       username: currentUser.username || '',
       first_name: currentUser.first_name || '',
@@ -462,7 +435,6 @@ const StaffManagement = ({ currentUser, onStaffUpdate }) => {
 
   return (
     <div className="staff-management">
-      {/* Staff Management Section */}
       <div className="management-section">
         <div className="section-header">
           <h3>Staff Management</h3>
@@ -549,7 +521,6 @@ const StaffManagement = ({ currentUser, onStaffUpdate }) => {
                   placeholder="9XXXXXXXXX" 
                   value={formData.phone_number} 
                   onChange={(e) => {
-                    // Only allow numbers and limit to 10 digits (after 63)
                     const value = e.target.value.replace(/[^\d]/g, '').slice(0, 10);
                     setFormData({...formData, phone_number: value});
                   }}
@@ -666,7 +637,6 @@ const StaffManagement = ({ currentUser, onStaffUpdate }) => {
                   placeholder="9XXXXXXXXX" 
                   value={staffEditForm.phone_number} 
                   onChange={(e) => {
-                    // Only allow numbers and limit to 10 digits
                     const value = e.target.value.replace(/[^\d]/g, '').slice(0, 10);
                     setStaffEditForm({...staffEditForm, phone_number: value});
                   }}
@@ -750,7 +720,6 @@ const StaffManagement = ({ currentUser, onStaffUpdate }) => {
         </div>
       </div>
 
-      {/* Admin Profile Section */}
       <div className="admin-profile-section">
         <div className="section-header">
           <h3>My Admin Profile</h3>
@@ -861,7 +830,6 @@ const StaffManagement = ({ currentUser, onStaffUpdate }) => {
                   placeholder="9XXXXXXXXX" 
                   value={adminProfile.phone_number} 
                   onChange={(e) => {
-                    // Only allow numbers and limit to 10 digits
                     const value = e.target.value.replace(/[^\d]/g, '').slice(0, 10);
                     setAdminProfile({...adminProfile, phone_number: value});
                   }}

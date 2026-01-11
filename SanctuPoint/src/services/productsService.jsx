@@ -22,7 +22,6 @@ const handleSupabaseError = (error, operation) => {
 }
 
 export const productsService = {
-  // Get all products
   async getProducts() {
     try {
       console.log('🔄 Fetching products...');
@@ -44,7 +43,6 @@ export const productsService = {
     }
   },
 
-  // Create product (admin only)
   async createProduct(productData, currentUser) {
     try {
       if (!currentUser || currentUser.role !== 'admin') {
@@ -83,7 +81,6 @@ export const productsService = {
     }
   },
 
-  // Update product (admin only)
   async updateProduct(productId, productData, currentUser) {
     try {
       if (!currentUser || currentUser.role !== 'admin') {
@@ -121,14 +118,12 @@ export const productsService = {
     }
   },
 
-  // Delete product (admin only)
   async deleteProduct(productId, currentUser) {
     try {
       if (!currentUser || currentUser.role !== 'admin') {
         return { success: false, error: 'Only administrators can delete products' };
       }
 
-      // Check if product is used in any appointments or purchases
       const [appointmentsCheck, purchasesCheck] = await Promise.all([
         supabase
           .from('appointment_products')
@@ -165,7 +160,6 @@ export const productsService = {
     }
   },
 
-  // Get products for appointment
   async getAppointmentProducts(appointmentId) {
     try {
       const { data, error } = await supabase
@@ -191,16 +185,14 @@ export const productsService = {
     }
   },
 
-  // Add products to appointment
   async addProductsToAppointment(appointmentId, products, currentUser) {
     try {
       if (!currentUser) {
         return { success: false, error: 'Authentication required' };
       }
 
-      // Validate products
       if (!products || !Array.isArray(products) || products.length === 0) {
-        return { success: true, data: [] }; // No products to add
+        return { success: true, data: [] }; 
       }
 
       const validProducts = products.filter(p => 
@@ -211,7 +203,6 @@ export const productsService = {
         return { success: true, data: [] };
       }
 
-      // Prepare product data
       const productData = validProducts.map(product => ({
         appointment_id: appointmentId,
         product_id: product.product_id,
@@ -221,10 +212,8 @@ export const productsService = {
         created_at: new Date().toISOString()
       }));
 
-      // Calculate total offering amount
       const totalOffering = productData.reduce((sum, p) => sum + p.total_price, 0);
 
-      // Insert products
       const { data, error } = await supabase
         .from('appointment_products')
         .insert(productData)
@@ -234,7 +223,6 @@ export const productsService = {
         return handleSupabaseError(error, 'add products to appointment');
       }
 
-      // Update appointment offering total
       await supabase
         .from('appointments')
         .update({ 
@@ -254,14 +242,12 @@ export const productsService = {
     }
   },
 
-  // Remove product from appointment
   async removeProductFromAppointment(appointmentProductId, currentUser) {
     try {
       if (!currentUser) {
         return { success: false, error: 'Authentication required' };
       }
 
-      // Get the product to calculate new total
       const { data: product, error: fetchError } = await supabase
         .from('appointment_products')
         .select('appointment_id, total_price')
@@ -272,7 +258,6 @@ export const productsService = {
         return handleSupabaseError(fetchError, 'fetch appointment product');
       }
 
-      // Delete the product
       const { error: deleteError } = await supabase
         .from('appointment_products')
         .delete()
@@ -282,7 +267,6 @@ export const productsService = {
         return handleSupabaseError(deleteError, 'remove product from appointment');
       }
 
-      // Recalculate appointment offering total
       const { data: remainingProducts } = await supabase
         .from('appointment_products')
         .select('total_price')
@@ -307,29 +291,24 @@ export const productsService = {
     }
   },
 
-  // Create standalone purchase (offerings without appointment)
   async createStandalonePurchase(purchaseData, currentUser) {
     try {
       console.log('🔄 Creating standalone purchase...');
 
-      // Generate receipt number
       const receiptNumber = 'OFFR-' + 
         new Date().getFullYear().toString().slice(-2) +
         (new Date().getMonth() + 1).toString().padStart(2, '0') +
         new Date().getDate().toString().padStart(2, '0') + '-' +
         Math.floor(Math.random() * 10000).toString().padStart(4, '0');
 
-      // Calculate total from products
       const totalAmount = purchaseData.products.reduce(
         (sum, product) => sum + (product.quantity * product.unit_price), 
         0
       );
 
-      // Calculate change
       const amountPaid = parseFloat(purchaseData.amount_paid) || 0;
       const changeAmount = Math.max(0, amountPaid - totalAmount);
 
-      // Validate payment
       if (amountPaid < totalAmount) {
         return {
           success: false,
@@ -337,7 +316,6 @@ export const productsService = {
         };
       }
 
-      // Create purchase record
       const purchasePayload = {
         receipt_number: receiptNumber,
         customer_name: purchaseData.customer_name,
@@ -361,7 +339,6 @@ export const productsService = {
         return handleSupabaseError(purchaseError, 'create standalone purchase');
       }
 
-      // Create purchase items
       const purchaseItems = purchaseData.products.map(product => ({
         purchase_id: purchase.purchase_id,
         product_id: product.product_id,
@@ -376,7 +353,6 @@ export const productsService = {
         .insert(purchaseItems);
 
       if (itemsError) {
-        // Rollback purchase if items fail
         await supabase.from('standalone_purchases').delete().eq('purchase_id', purchase.purchase_id);
         return handleSupabaseError(itemsError, 'create purchase items');
       }
@@ -392,7 +368,6 @@ export const productsService = {
     }
   },
 
-  // Get standalone purchases
   async getStandalonePurchases(currentUser, filters = {}) {
     try {
       if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'staff')) {
@@ -410,7 +385,6 @@ export const productsService = {
         `)
         .order('created_at', { ascending: false });
 
-      // Apply filters
       if (filters.startDate) {
         query = query.gte('purchase_date', filters.startDate);
       }
@@ -436,7 +410,6 @@ export const productsService = {
     }
   },
 
-  // Get purchase by receipt number
   async getPurchaseByReceipt(receiptNumber, currentUser) {
     try {
       if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'staff')) {

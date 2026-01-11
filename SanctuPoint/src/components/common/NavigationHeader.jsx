@@ -5,7 +5,6 @@ const NavigationHeader = ({ currentPage, onPageChange }) => {
   const [activePage, setActivePage] = useState(currentPage || 'home');
   const currentUser = authService.getCurrentUser();
 
-  // Admin menu items
   const adminMenuItems = [
   { key: 'home', label: 'Home', description: 'Dashboard' },
   { key: 'services', label: 'Services', description: 'Our Services' },
@@ -17,7 +16,6 @@ const NavigationHeader = ({ currentPage, onPageChange }) => {
   { key: 'donation', label: 'Donation', description: 'Support Us' }
 ];
 
-  // Staff menu items 
   const staffMenuItems = [
     { key: 'home', label: 'Home', description: 'Dashboard' },
     { key: 'services', label: 'Services', description: 'Our Services' },
@@ -26,7 +24,6 @@ const NavigationHeader = ({ currentPage, onPageChange }) => {
     { key: 'appointment-history', label: 'Appointment History', description: 'Past Appointments' }
   ];
 
-  // Use appropriate menu based on user role
   const menuItems = currentUser?.role === 'admin' ? adminMenuItems : staffMenuItems;
 
   const handlePageClick = (pageKey) => {

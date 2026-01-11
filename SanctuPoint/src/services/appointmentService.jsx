@@ -46,7 +46,7 @@ const fetchRequirementsAndPayments = async (appointmentIds) => {
       .from('requirements')
       .select('*')
       .in('appointment_id', appointmentIds)
-      .order('is_required', { ascending: false }) // Show required first
+      .order('is_required', { ascending: false }) 
       .order('requirement_id', { ascending: true }),
     supabase
       .from('payments')
@@ -63,7 +63,7 @@ const fetchRequirementsAndPayments = async (appointmentIds) => {
     }
     requirementsMap[req.appointment_id].push({
       ...req,
-      is_checked: req.is_checked || false // Ensure is_checked is always defined
+      is_checked: req.is_checked || false
     });
   });
 
@@ -90,11 +90,9 @@ const validateDateInAdvance = (date) => {
   const appointmentDate = new Date(date);
   const today = new Date();
   
-  // Set both to start of day for fair comparison
   appointmentDate.setHours(0, 0, 0, 0);
   today.setHours(0, 0, 0, 0);
   
-  // Check if appointment date is strictly greater than today
   return appointmentDate > today; 
 };
 
@@ -103,59 +101,46 @@ const checkTimeConflicts = (existingAppointments, slotStartMinutes, slotEndMinut
     return { hasConflict: false };
   }
   
-  // For all appointments, check for conflicts
   for (const appointment of existingAppointments) {
     const [appHours, appMinutes] = appointment.appointment_time.split(':').map(Number);
     const appStartMinutes = appHours * 60 + appMinutes;
     const appDuration = appointment.service_duration || 60;
     const appEndMinutes = appStartMinutes + appDuration;
-    const bufferStartMinutes = appEndMinutes; // Buffer starts immediately after appointment
-    const bufferEndMinutes = appEndMinutes + bufferMinutes; // Buffer ends after buffer duration
+    const bufferStartMinutes = appEndMinutes; 
+    const bufferEndMinutes = appEndMinutes + bufferMinutes;
     
     let hasConflict = false;
     
     if (allowConcurrent && serviceType) {
-      // For concurrent appointments:
       if (appointment.service_type === serviceType) {
-        // Same service type - only check buffer violations (can run at same time)
         const violatesBuffer = 
-          (slotStartMinutes >= appEndMinutes && slotStartMinutes < bufferEndMinutes) ||  // New appointment STARTS during buffer
-          (slotEndMinutes > appEndMinutes && slotEndMinutes <= bufferEndMinutes);        // New appointment ENDS during buffer
+          (slotStartMinutes >= appEndMinutes && slotStartMinutes < bufferEndMinutes) || 
+          (slotEndMinutes > appEndMinutes && slotEndMinutes <= bufferEndMinutes);        
         
         hasConflict = violatesBuffer;
       } else {
-        // Different service type - check normal conflicts including buffer
-        
-        // Check for ANY overlap (even partial)
         const overlaps = 
-          (slotStartMinutes >= appStartMinutes && slotStartMinutes < appEndMinutes) ||   // New starts during existing
-          (slotEndMinutes > appStartMinutes && slotEndMinutes <= appEndMinutes) ||       // New ends during existing
-          (slotStartMinutes <= appStartMinutes && slotEndMinutes >= appEndMinutes);      // New completely encompasses existing
+          (slotStartMinutes >= appStartMinutes && slotStartMinutes < appEndMinutes) ||  
+          (slotEndMinutes > appStartMinutes && slotEndMinutes <= appEndMinutes) ||      
+          (slotStartMinutes <= appStartMinutes && slotEndMinutes >= appEndMinutes);     
         
-        // Check for buffer conflicts
         const startsDuringBuffer = slotStartMinutes >= appEndMinutes && slotStartMinutes < bufferEndMinutes;
         const endsDuringBuffer = slotEndMinutes > appEndMinutes && slotEndMinutes <= bufferEndMinutes;
         
-        // Check if new appointment starts BEFORE but ends DURING or AFTER existing appointment
         const startsBeforeEndsDuringOrAfter = 
           (slotStartMinutes < appStartMinutes && slotEndMinutes > appStartMinutes);
         
         hasConflict = overlaps || startsDuringBuffer || endsDuringBuffer || startsBeforeEndsDuringOrAfter;
       }
     } else {
-      // Standard conflict checking for non-concurrent appointments
-      
-      // Check for ANY overlap (even partial)
       const overlaps = 
-        (slotStartMinutes >= appStartMinutes && slotStartMinutes < appEndMinutes) ||   // New starts during existing
-        (slotEndMinutes > appStartMinutes && slotEndMinutes <= appEndMinutes) ||       // New ends during existing
-        (slotStartMinutes <= appStartMinutes && slotEndMinutes >= appEndMinutes);      // New completely encompasses existing
+        (slotStartMinutes >= appStartMinutes && slotStartMinutes < appEndMinutes) ||   
+        (slotEndMinutes > appStartMinutes && slotEndMinutes <= appEndMinutes) ||      
+        (slotStartMinutes <= appStartMinutes && slotEndMinutes >= appEndMinutes);    
       
-      // Check for buffer conflicts
       const startsDuringBuffer = slotStartMinutes >= appEndMinutes && slotStartMinutes < bufferEndMinutes;
       const endsDuringBuffer = slotEndMinutes > appEndMinutes && slotEndMinutes <= bufferEndMinutes;
       
-      // Check if new appointment starts BEFORE but ends DURING or AFTER existing appointment
       const startsBeforeEndsDuringOrAfter = 
         (slotStartMinutes < appStartMinutes && slotEndMinutes > appStartMinutes);
       
@@ -163,8 +148,7 @@ const checkTimeConflicts = (existingAppointments, slotStartMinutes, slotEndMinut
     }
     
     if (hasConflict) {
-      // Calculate next available time based on the end of the buffer
-      const nextAvailableMinutes = bufferEndMinutes; // After buffer ends
+      const nextAvailableMinutes = bufferEndMinutes; 
       const nextAvailableHour = Math.floor(nextAvailableMinutes / 60);
       const nextAvailableMinute = nextAvailableMinutes % 60;
       const displayHour = nextAvailableHour % 12 || 12;
@@ -232,9 +216,7 @@ export const appointmentService = {
       console.log('✅ Appointments fetched:', appointments?.length || 0);
       console.log('✅ Sample appointment with requirements:', appointments?.[0]?.requirements || 'No requirements');
       
-      // Process appointments
       const appointmentsWithDetails = appointments?.map(appointment => {
-        // Ensure requirements have proper structure
         const requirements = (appointment.requirements || []).map(req => ({
           requirement_id: req.requirement_id,
           appointment_id: req.appointment_id,
@@ -327,7 +309,6 @@ export const appointmentService = {
       console.log('✅ User appointments raw data:', appointments?.length || 0);
       
       const userAppointments = appointments?.map(appointment => {
-        // Ensure requirements have proper structure
         const requirements = (appointment.requirements || []).map(req => ({
           requirement_id: req.requirement_id,
           appointment_id: req.appointment_id,
@@ -357,7 +338,6 @@ export const appointmentService = {
     }
   },
 
-  // UPDATED: validateAppointment with allow_concurrent support
   async validateAppointment(appointmentData, serviceId) {
     try {
       if (!validateDateInAdvance(appointmentData.date)) {
@@ -407,7 +387,6 @@ export const appointmentService = {
         .in('status', ['pending', 'confirmed'])
         .order('appointment_time', { ascending: true });
 
-      // Pass allow_concurrent flag to conflict check
       const conflictCheck = checkTimeConflicts(
         dayAppointments, 
         appointmentStartMinutes, 
@@ -515,7 +494,7 @@ export const appointmentService = {
           predefinedRequirements = service.requirements.map(req => ({
             requirement_details: req.requirement_details,
             is_required: req.is_required,
-            is_checked: false // Start as unchecked, will be updated based on user selection
+            is_checked: false 
           }));
         }
       }
@@ -536,7 +515,6 @@ export const appointmentService = {
       const changeAmount = Math.max(0, amountPaid - servicePrice);
       const receiptNumber = generateReceiptNumber();
 
-      // REMOVE is_anonymous from the payload
       const appointmentPayload = {
         appointment_date: appointmentData.date,
         appointment_time: appointmentData.time,
@@ -556,7 +534,6 @@ export const appointmentService = {
         payment_status: 'paid',
         offering_total: 0,
         service_duration: serviceDuration
-        // REMOVED: is_anonymous: appointmentData.is_anonymous || false,
       };
 
       console.log('📋 Appointment payload:', appointmentPayload);
@@ -574,7 +551,6 @@ export const appointmentService = {
 
       console.log('✅ Appointment created:', appointment.appointment_id);
 
-      // Log the requirements data being passed
       console.log('📝 Creating requirements with data:', {
         appointmentId: appointment.appointment_id,
         predefinedRequirements: predefinedRequirements,
@@ -589,14 +565,11 @@ export const appointmentService = {
         }
       });
 
-      // Process requirements from the booking
       const requirementsToSave = [];
       
       if (appointmentData.requirements && appointmentData.requirements.length > 0) {
-        // Merge predefined requirements with user selections
         const userRequirements = appointmentData.requirements || [];
         
-        // For each predefined requirement, check if user checked it
         predefinedRequirements.forEach(predefinedReq => {
           const userReq = userRequirements.find(ur => 
             ur.requirement_details === predefinedReq.requirement_details
@@ -612,7 +585,6 @@ export const appointmentService = {
           });
         });
 
-        // Add any custom requirements (non-predefined)
         const customRequirements = userRequirements.filter(req => 
           !predefinedRequirements.some(pre => pre.requirement_details === req.requirement_details)
         );
@@ -630,7 +602,6 @@ export const appointmentService = {
           }
         });
       } else {
-        // If no requirements data from user, just save predefined ones
         predefinedRequirements.forEach(predefinedReq => {
           requirementsToSave.push({
             appointment_id: appointment.appointment_id,
@@ -643,7 +614,6 @@ export const appointmentService = {
         });
       }
 
-      // Save requirements to database
       if (requirementsToSave.length > 0) {
         console.log('💾 Saving requirements to database:', {
           count: requirementsToSave.length,
@@ -660,7 +630,6 @@ export const appointmentService = {
 
         if (reqError) {
           console.error('❌ Requirements creation error:', reqError);
-          // Don't fail the appointment creation, just log the error
         } else {
           console.log('✅ Requirements saved successfully:', requirementsToSave.length);
         }
@@ -859,7 +828,6 @@ export const appointmentService = {
           customer_last_name: appointment.customer_last_name,
           customer_email: appointment.customer_email,
           customer_phone: appointment.customer_phone,
-          // REMOVED: is_anonymous field
           payment_amount: appointment.payment_amount,
           amount_paid: appointment.amount_paid,
           change_amount: appointment.change_amount,
@@ -957,7 +925,6 @@ export const appointmentService = {
     }
   },
 
-  // UPDATED: checkAppointmentAvailability with allow_concurrent support
   async checkAppointmentAvailability(date, time, serviceId, appointmentId = null) {
     try {
       const { data: service } = await supabase
@@ -1021,7 +988,6 @@ export const appointmentService = {
       const reportDate = date || new Date().toISOString().split('T')[0];
       console.log('📅 Generating daily report for (by payment date):', reportDate);
 
-      // Fetch payments made on the report date
       const { data: payments, error: paymentsError } = await supabase
         .from('payments')
         .select('*')
@@ -1032,10 +998,8 @@ export const appointmentService = {
         return handleSupabaseError(paymentsError, 'fetch payments for daily report');
       }
 
-      // Collect unique appointment IDs from today's payments
       const appointmentIds = [...new Set((payments || []).map(p => p.appointment_id).filter(Boolean))];
 
-      // Fetch appointment records for those payments
       let appointments = [];
       if (appointmentIds.length > 0) {
         const { data: appts, error: apptError } = await supabase
@@ -1058,14 +1022,12 @@ export const appointmentService = {
         appointments = appts || [];
       }
 
-      // Map payments by appointment id
       const paymentsByAppointment = {};
       (payments || []).forEach(p => {
         if (!paymentsByAppointment[p.appointment_id]) paymentsByAppointment[p.appointment_id] = [];
         paymentsByAppointment[p.appointment_id].push(p);
       });
 
-      // Build formatted appointments using payments on the report date as the paid amount
       const formattedAppointments = (appointments || []).map(app => {
         const todaysPayments = paymentsByAppointment[app.appointment_id] || [];
         const paidToday = todaysPayments.reduce((s, x) => s + (Number(x.amount) || 0), 0);
@@ -1081,7 +1043,6 @@ export const appointmentService = {
             quantity: item.quantity,
             total: item.total_price
           })) || [],
-          // Expose amounts for the UI: `amount_paid` reflects what was paid on this report date
           amount_paid: paidToday,
           payment_amount: app.payment_amount || 0,
           change_amount: app.change_amount || 0,
@@ -1089,7 +1050,6 @@ export const appointmentService = {
         };
       }) || [];
 
-      // Fetch standalone purchases (unchanged) for the same date
       const { data: standalonePurchases, error: purchasesError } = await supabase
         .from('standalone_purchases')
         .select(`
@@ -1122,17 +1082,13 @@ export const appointmentService = {
         })) || []
       })) || [];
 
-      // Calculate totals: sum of payments (appointments by payment_date + standalone purchases)
       let totalPayments = 0;
       let totalChange = 0;
 
-      // Sum payments amounts directly (payments fetched are those made on reportDate)
       totalPayments += (payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
 
-      // Sum change amounts for unique appointments included (count change once per appointment)
       totalChange += (appointments || []).reduce((s, a) => s + (Number(a.change_amount) || 0), 0);
 
-      // Add standalone purchases
       formattedStandalonePurchases.forEach(p => {
         totalPayments += Number(p.amount_paid || p.total_amount || 0);
         totalChange += Number(p.change_amount || 0);
@@ -1210,7 +1166,6 @@ export const appointmentService = {
         return handleSupabaseError(error, 'fetch appointment details')
       }
 
-      // Ensure is_checked is properly set for each requirement
       if (data.requirements) {
         data.requirements = data.requirements.map(req => ({
           ...req,
@@ -1273,15 +1228,12 @@ export const appointmentService = {
         return handleSupabaseError(error, 'fetch appointment stats')
       }
 
-      // REMOVED: isAnonymousAppointment function and anonymousCount calculation
-
       const offeringTotals = appointments?.reduce((sum, app) => {
         return sum + calculateOfferingTotal(app.appointment_products);
       }, 0) || 0;
 
       const stats = {
         total_appointments: appointments?.length || 0,
-        // REMOVED: anonymous_appointments: anonymousCount,
         pending_count: appointments?.filter(a => a.status === 'pending').length || 0,
         confirmed_count: appointments?.filter(a => a.status === 'confirmed').length || 0,
         completed_count: appointments?.filter(a => a.status === 'completed').length || 0,
@@ -1350,7 +1302,6 @@ export const appointmentService = {
       console.log('DEBUG: Updating requirements for appointment:', appointmentId);
       console.log('DEBUG: Updates to apply:', requirementUpdates);
 
-      // Update each requirement individually
       for (const update of requirementUpdates) {
         const { error } = await supabase
           .from('requirements')
@@ -1435,8 +1386,6 @@ export const appointmentService = {
         return handleSupabaseError(error, 'fetch appointment summary');
       }
 
-      // REMOVED: isAnonymousAppointment function
-
       const serviceTotal = data.services?.price || 0;
       const offeringTotal = calculateOfferingTotal(data.appointment_products);
       const grandTotal = serviceTotal + offeringTotal;
@@ -1447,7 +1396,6 @@ export const appointmentService = {
         service_price: serviceTotal,
         service_duration: data.service_duration || 60,
         allow_concurrent: data.services?.allow_concurrent || false,
-        // REMOVED: is_anonymous field
         offering_items: data.appointment_products?.map(item => ({
           name: item.products?.product_name || 'Unknown',
           description: item.products?.description || '',
@@ -1460,7 +1408,6 @@ export const appointmentService = {
         amount_paid: data.amount_paid || 0,
         change_amount: data.change_amount || 0,
         receipt_number: data.receipt_number,
-        // SIMPLIFIED: Direct customer name display
         customer_name: `${data.customer_first_name} ${data.customer_last_name}`
       };
 

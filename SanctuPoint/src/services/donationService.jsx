@@ -8,20 +8,17 @@ const handleSupabaseError = (error, operation) => {
   }
 }
 
-// Validation constants
 const VALIDATION_RULES = {
   DONOR_NAME: {
     MIN_LENGTH: 2,
     MAX_LENGTH: 100,
-    // Allow: letters, spaces, periods, apostrophes, hyphens
-    // Disallow: special characters and numbers
     PATTERN: /^[a-zA-Z\s.'-]+$/,
     SPECIAL_CHAR_REGEX: /[!@#$%^&*()_+=\[\]{};:"\\|,<>\/?~`0-9]/,
-    IS_REQUIRED: false // Set to false to make it optional
+    IS_REQUIRED: false 
   },
   AMOUNT: {
     MIN: 0.01,
-    MAX: 50000, // Set to 50,000 PHP maximum
+    MAX: 50000, 
     MAX_DECIMALS: 2,
     IS_REQUIRED: true
   },
@@ -31,11 +28,9 @@ const VALIDATION_RULES = {
   }
 }
 
-// Validation functions
 const validateDonationInput = (donationData) => {
   const errors = []
   
-  // Validate donor name - OPTIONAL (can be blank)
   if (donationData.donor_name && donationData.donor_name.trim() !== '') {
     const trimmedName = donationData.donor_name.trim()
     
@@ -47,18 +42,15 @@ const validateDonationInput = (donationData) => {
       errors.push(`Donor name cannot exceed ${VALIDATION_RULES.DONOR_NAME.MAX_LENGTH} characters`)
     }
     
-    // Check for any special characters or numbers
     if (VALIDATION_RULES.DONOR_NAME.SPECIAL_CHAR_REGEX.test(trimmedName)) {
       errors.push('Donor name cannot contain special characters or numbers')
     }
     
-    // Validate pattern (letters, spaces, periods, apostrophes, hyphens only)
     if (!VALIDATION_RULES.DONOR_NAME.PATTERN.test(trimmedName)) {
       errors.push('Name can only contain letters, spaces, periods, apostrophes, and hyphens')
     }
   }
   
-  // Validate amount - REQUIRED and MAX 50,000 PHP
   if (!donationData.amount && donationData.amount !== 0) {
     errors.push('Amount is required')
   } else {
@@ -72,14 +64,12 @@ const validateDonationInput = (donationData) => {
       errors.push(`Amount cannot exceed ₱${VALIDATION_RULES.AMOUNT.MAX.toLocaleString('en-PH')}`)
     }
     
-    // Validate decimal places
     const decimalPlaces = (amount.toString().split('.')[1] || '').length
     if (decimalPlaces > VALIDATION_RULES.AMOUNT.MAX_DECIMALS) {
       errors.push(`Amount can only have up to ${VALIDATION_RULES.AMOUNT.MAX_DECIMALS} decimal places`)
     }
   }
   
-  // Validate description length if provided
   if (donationData.description && donationData.description.length > VALIDATION_RULES.DESCRIPTION.MAX_LENGTH) {
     errors.push(`Description cannot exceed ${VALIDATION_RULES.DESCRIPTION.MAX_LENGTH} characters`)
   }
@@ -112,7 +102,6 @@ export const donationService = {
     try {
       console.log('🔄 Creating donation:', donationData)
       
-      // Validate input before proceeding
       const validationErrors = validateDonationInput(donationData)
       
       if (validationErrors.length > 0) {
@@ -123,7 +112,6 @@ export const donationService = {
         }
       }
       
-      // Clean and format data
       const cleanDonationData = {
         donor_name: donationData.donor_name ? donationData.donor_name.trim() : null, // Can be null
         amount: parseFloat(donationData.amount),
@@ -131,13 +119,11 @@ export const donationService = {
         donation_date: donationData.donation_date || new Date().toISOString()
       }
       
-      // Ensure amount is positive and within limit
       if (cleanDonationData.amount < 0) {
         console.log('⚠️ Converting negative amount to positive')
         cleanDonationData.amount = Math.abs(cleanDonationData.amount)
       }
       
-      // Ensure amount doesn't exceed 50,000
       if (cleanDonationData.amount > VALIDATION_RULES.AMOUNT.MAX) {
         return {
           success: false,
@@ -146,7 +132,6 @@ export const donationService = {
         }
       }
       
-      // Round to 2 decimal places
       cleanDonationData.amount = Math.round(cleanDonationData.amount * 100) / 100
       
       console.log('📦 Clean donation data:', cleanDonationData)
@@ -174,7 +159,6 @@ export const donationService = {
 
   async getDonationStats() {
     try {
-      // Get all donations
       const { data: donations, error } = await supabase
         .from('donations')
         .select('amount, donation_date, donor_name')
@@ -190,7 +174,6 @@ export const donationService = {
       const recentDonations = donations?.filter(d => new Date(d.donation_date) >= thirtyDaysAgo) || []
       const recentAmount = recentDonations.reduce((sum, donation) => sum + parseFloat(donation.amount || 0), 0)
       
-      // Count anonymous donations
       const anonymousDonations = donations?.filter(d => !d.donor_name || d.donor_name.trim() === '') || []
 
       const stats = {
@@ -208,9 +191,7 @@ export const donationService = {
     }
   },
   
-  // Validation function for donor name (OPTIONAL)
   validateDonorName(name) {
-    // If name is empty or just whitespace, it's valid (optional)
     if (!name || name.trim().length === 0) {
       return { isValid: true, message: '' }
     }
@@ -231,7 +212,6 @@ export const donationService = {
       }
     }
     
-    // Check for special characters or numbers
     if (VALIDATION_RULES.DONOR_NAME.SPECIAL_CHAR_REGEX.test(trimmedName)) {
       return { 
         isValid: false, 
@@ -239,7 +219,6 @@ export const donationService = {
       }
     }
     
-    // Validate pattern
     if (!VALIDATION_RULES.DONOR_NAME.PATTERN.test(trimmedName)) {
       return { 
         isValid: false, 
@@ -250,7 +229,6 @@ export const donationService = {
     return { isValid: true, message: '' }
   },
   
-  // Validation function for amount (MAX 50,000 PHP)
   validateAmount(amount) {
     if (amount === '' || amount === null || amount === undefined) {
       return { isValid: false, message: 'Amount is required' }
@@ -283,19 +261,14 @@ export const donationService = {
     return { isValid: true, message: '' }
   },
   
-  // Helper function to clean donor name (removes ALL special characters and numbers)
   cleanDonorName(name) {
     if (!name || name.trim().length === 0) return ''
     
-    // Remove ALL special characters and numbers
-    // Keep only: letters, spaces, periods, apostrophes, hyphens
     const cleaned = name.replace(/[!@#$%^&*()_+=\[\]{};:"\\|,<>\/?~`0-9]/g, '')
     
-    // Trim and limit length
     return cleaned.trim().substring(0, VALIDATION_RULES.DONOR_NAME.MAX_LENGTH)
   },
   
-  // Helper function to clean amount (ensures positive number, max 50,000)
   cleanAmount(amount) {
     if (amount === '' || amount === null || amount === undefined) return ''
     
@@ -303,15 +276,12 @@ export const donationService = {
     
     if (isNaN(numAmount)) return ''
     
-    // Convert to positive if negative
     let positiveAmount = Math.abs(numAmount)
     
-    // Enforce maximum of 50,000
     if (positiveAmount > VALIDATION_RULES.AMOUNT.MAX) {
       positiveAmount = VALIDATION_RULES.AMOUNT.MAX
     }
     
-    // Round to 2 decimal places
     return Math.round(positiveAmount * 100) / 100
   }
 }

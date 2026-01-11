@@ -8,7 +8,6 @@ const handleSupabaseError = (error, operation) => {
 export const archivedAppointmentsService = {
   async getArchivedAppointments(currentUser) {
     try {
-      // Allow both admin and staff to view archived appointments
       if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'staff')) {
         return { success: false, error: 'Only administrators and staff can view archived appointments', data: [] }
       }
@@ -27,7 +26,6 @@ export const archivedAppointmentsService = {
 
       console.log('✅ Found', data?.length || 0, 'archived appointments')
 
-      // Simple transformation with backward compatibility
       const transformedData = data?.map(item => ({
         archived_id: item.archived_id,
         original_appointment_id: item.original_appointment_id,
@@ -42,7 +40,6 @@ export const archivedAppointmentsService = {
         customer_email: item.customer_email,
         customer_phone: item.customer_phone,
         service_id: item.service_id,
-        // Add other fields from archived_appointments
         requirements: item.requirements || [],
         total_payments: item.total_payments || 0,
         payment_count: item.payment_count || 0,
@@ -59,7 +56,6 @@ export const archivedAppointmentsService = {
 
   async restoreAppointment(archivedId, currentUser) {
     try {
-      // Allow both admin and staff to restore appointments
       if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'staff')) {
         return { success: false, error: 'Only administrators and staff can restore appointments' }
       }
@@ -83,12 +79,11 @@ export const archivedAppointmentsService = {
 
       console.log('📋 Archived record:', archivedRecord)
 
-      // Create new appointment from archived data
       const appointmentPayload = {
         appointment_date: archivedRecord.appointment_date,
         appointment_time: archivedRecord.appointment_time,
         service_type: archivedRecord.service_type,
-        status: 'pending', // Reset to pending when restoring
+        status: 'pending', 
         created_by: archivedRecord.created_by,
         customer_first_name: archivedRecord.customer_first_name,
         customer_last_name: archivedRecord.customer_last_name,
@@ -110,7 +105,6 @@ export const archivedAppointmentsService = {
 
       console.log('✅ New appointment created:', newAppointment)
 
-      // Restore requirements if they exist in the JSON
       if (archivedRecord.requirements && Array.isArray(archivedRecord.requirements)) {
         const requirementsToRestore = archivedRecord.requirements
           .filter(req => req && req.requirement_details)
@@ -126,18 +120,14 @@ export const archivedAppointmentsService = {
 
           if (reqError) {
             console.error('❌ Error restoring requirements:', reqError)
-            // Continue anyway
           }
         }
       }
 
-      // Restore payments summary (just store as a note, or you could recreate payments if needed)
-      // For now, we'll just log it
       if (archivedRecord.total_payments > 0) {
         console.log(`Note: Original appointment had ${archivedRecord.payment_count} payments totaling ${archivedRecord.total_payments}`)
       }
 
-      // Delete the archived record
       const { error: deleteError } = await supabase
         .from('archived_appointments')
         .delete()
@@ -145,7 +135,6 @@ export const archivedAppointmentsService = {
 
       if (deleteError) {
         console.error('❌ Error deleting archived record:', deleteError)
-        // Don't fail the operation - we can continue even if deletion fails
       }
 
       console.log('✅ Appointment restored successfully')
@@ -162,7 +151,6 @@ export const archivedAppointmentsService = {
 
   async deleteArchivedAppointment(archivedId, currentUser) {
     try {
-      // Allow both admin and staff to delete archived appointments
       if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'staff')) {
         return { success: false, error: 'Only administrators and staff can delete archived appointments' }
       }
@@ -187,7 +175,6 @@ export const archivedAppointmentsService = {
 
   async getArchivedAppointmentStats(currentUser) {
     try {
-      // Allow both admin and staff to view stats
       if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'staff')) {
         return { success: false, error: 'Only administrators and staff can view archived appointment stats', data: null }
       }
@@ -218,7 +205,6 @@ export const archivedAppointmentsService = {
 
   async archiveCompletedAppointments(currentUser) {
     try {
-      // Allow both admin and staff to bulk archive
       if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'staff')) {
         return { success: false, error: 'Only administrators and staff can archive completed appointments' }
       }
@@ -237,7 +223,6 @@ export const archivedAppointmentsService = {
 
   async getArchivedAppointmentDetails(archivedId, currentUser) {
     try {
-      // Allow both admin and staff to view details
       if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'staff')) {
         return { success: false, error: 'Only administrators and staff can view archived appointment details', data: null }
       }
@@ -252,7 +237,6 @@ export const archivedAppointmentsService = {
         return handleSupabaseError(error, 'fetch archived appointment details')
       }
 
-      // Add backward compatibility aliases
       const transformedData = {
         ...data,
         date: data.appointment_date,

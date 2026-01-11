@@ -1,4 +1,3 @@
-// src/components/TestConnection.jsx
 import { useEffect } from 'react'
 import { supabase } from '../config/supabaseClient'
 import { servicesService } from '../services/servicesService'
@@ -11,7 +10,6 @@ const TestConnection = () => {
   const testConnection = async () => {
     console.log('🧪 Testing Supabase connection...')
     
-    // Test 1: Basic Supabase connection
     try {
       const { data, error } = await supabase
         .from('services')
@@ -27,7 +25,6 @@ const TestConnection = () => {
       console.error('❌ Supabase connection error:', error)
     }
 
-    // Test 2: Services fetch
     try {
       const result = await servicesService.getServices()
       if (result.success) {

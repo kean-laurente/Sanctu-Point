@@ -26,7 +26,6 @@ const ReceiptModal = ({ appointment, isOpen, onClose }) => {
   const handleDownloadPDF = async () => {
     setDownloadLoading(true);
     try {
-      // Load libraries dynamically
       const [html2canvas, jsPDF] = await Promise.all([
         import('html2canvas').then(m => m.default),
         import('jspdf').then(m => m.jsPDF)

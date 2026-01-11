@@ -23,12 +23,10 @@ const handleSupabaseError = (error, operation) => {
 }
 
 export const offeringService = {
-  // Process standalone offering (no appointment)
   async processOfferingOnly(offeringData, currentUser) {
     try {
       console.log('🔄 Processing offering only...');
 
-      // Get products first to validate
       const productsResult = await productsService.getProducts();
       if (!productsResult.success) {
         return productsResult;
@@ -36,7 +34,6 @@ export const offeringService = {
 
       const availableProducts = productsResult.data;
       
-      // Validate offering items
       const validOfferingItems = offeringData.items.filter(item => {
         const product = availableProducts.find(p => p.product_id === item.product_id);
         return product && item.quantity > 0;
@@ -46,9 +43,8 @@ export const offeringService = {
         return { success: false, error: 'No valid offering items selected' };
       }
 
-      // Create purchase data
       const purchaseData = {
-        customer_name: offeringData.customer_name || 'Anonymous Donor', // Default value
+        customer_name: offeringData.customer_name || 'Anonymous Donor', 
         customer_email: offeringData.customer_email || '',
         customer_phone: offeringData.customer_phone || '',
         amount_paid: offeringData.amount_paid,
@@ -60,7 +56,6 @@ export const offeringService = {
         }))
       };
 
-      // Create standalone purchase
       const result = await productsService.createStandalonePurchase(purchaseData, currentUser);
       
       if (result.success) {
@@ -78,14 +73,12 @@ export const offeringService = {
     }
   },
 
-  // Get daily offerings report
   async getDailyOfferingsReport(date = null) {
     try {
       const reportDate = date || new Date().toISOString().split('T')[0];
       
       console.log('📅 Generating daily offerings report for:', reportDate);
 
-      // Get standalone purchases for the day
       const { data: purchases, error: purchasesError } = await supabase
         .from('standalone_purchases')
         .select(`
@@ -99,7 +92,6 @@ export const offeringService = {
         return handleSupabaseError(purchasesError, 'fetch daily purchases');
       }
 
-      // Get appointments with offerings for the day
       const { data: appointments, error: appointmentsError } = await supabase
         .from('appointments')
         .select(`
@@ -117,12 +109,10 @@ export const offeringService = {
         console.warn('Could not fetch appointments with offerings:', appointmentsError);
       }
 
-      // Calculate totals
       const standaloneTotal = purchases?.reduce((sum, p) => sum + (p.total_amount || 0), 0) || 0;
       const appointmentOfferingsTotal = appointments?.reduce((sum, a) => sum + (a.offering_total || 0), 0) || 0;
       const totalOfferings = standaloneTotal + appointmentOfferingsTotal;
 
-      // Format data for display
       const formattedPurchases = purchases?.map(purchase => ({
         type: 'standalone',
         receipt_number: purchase.receipt_number,
@@ -144,7 +134,6 @@ export const offeringService = {
         appointment_time: appointment.appointment_time
       })) || [];
 
-      // Combine all offerings
       const allOfferings = [...formattedPurchases, ...formattedAppointments]
         .sort((a, b) => new Date(a.created_at || b.appointment_time) - new Date(b.created_at || a.appointment_time));
 
@@ -168,14 +157,12 @@ export const offeringService = {
     }
   },
 
-  // Get offerings summary (for dashboard)
   async getOfferingsSummary(startDate, endDate, currentUser) {
     try {
       if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'staff')) {
         return { success: false, error: 'Only administrators and staff can view offerings summary' };
       }
 
-      // Get standalone purchases in date range
       const { data: purchases, error: purchasesError } = await supabase
         .from('standalone_purchases')
         .select('total_amount, purchase_date')
@@ -186,7 +173,6 @@ export const offeringService = {
         console.warn('Could not fetch purchases:', purchasesError);
       }
 
-      // Get appointments with offerings in date range
       const { data: appointments, error: appointmentsError } = await supabase
         .from('appointments')
         .select('offering_total, appointment_date')
@@ -198,12 +184,10 @@ export const offeringService = {
         console.warn('Could not fetch appointments:', appointmentsError);
       }
 
-      // Calculate totals
       const standaloneTotal = purchases?.reduce((sum, p) => sum + (p.total_amount || 0), 0) || 0;
       const appointmentOfferingsTotal = appointments?.reduce((sum, a) => sum + (a.offering_total || 0), 0) || 0;
       const totalOfferings = standaloneTotal + appointmentOfferingsTotal;
 
-      // Get top products
       const { data: topProducts, error: productsError } = await supabase
         .from('purchase_items')
         .select(`

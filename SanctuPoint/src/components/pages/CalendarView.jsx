@@ -4,7 +4,6 @@ const CalendarView = ({ events, currentUser }) => {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState(null)
 
-  // Helper function to convert time string to 24-hour format
   const convertTimeTo24Hour = (timeStr) => {
     if (!timeStr) return 0
     
@@ -27,13 +26,11 @@ const CalendarView = ({ events, currentUser }) => {
     }
   }
 
-  // Get month start and end dates
   const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
   const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
   const daysInMonth = endOfMonth.getDate()
   const startDay = startOfMonth.getDay()
 
-  // Calendar days array
   const calendarDays = useMemo(() => {
     const days = []
     for (let i = 0; i < startDay; i++) days.push(null)
@@ -41,7 +38,6 @@ const CalendarView = ({ events, currentUser }) => {
     return days
   }, [daysInMonth, startDay])
 
-  // Group events by date
   const eventsByDate = useMemo(() => {
     const map = {}
     events.forEach(e => {
@@ -51,12 +47,10 @@ const CalendarView = ({ events, currentUser }) => {
     return map
   }, [events])
 
-  // Get selected date events
   const selectedEvents = selectedDate
     ? eventsByDate[selectedDate] || []
     : []
 
-  // Get status color for appointments
   const getStatusColor = (status) => {
     const colors = {
       pending: '#ffc107',
@@ -67,7 +61,6 @@ const CalendarView = ({ events, currentUser }) => {
     return colors[status] || '#6c757d'
   }
 
-  // Navigation functions
   const prevMonth = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))
   }
@@ -76,7 +69,6 @@ const CalendarView = ({ events, currentUser }) => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))
   }
 
-  // Check if date is today
   const isToday = (day) => {
     const today = new Date()
     return (
@@ -88,7 +80,6 @@ const CalendarView = ({ events, currentUser }) => {
 
   return (
     <div className="calendar-view-container">
-      {/* Calendar Section */}
       <div className="calendar-section">
         <div className="calendar-header">
           <button onClick={prevMonth} className="calendar-nav-btn">
@@ -151,7 +142,6 @@ const CalendarView = ({ events, currentUser }) => {
         </div>
       </div>
 
-      {/* Appointments List Section */}
       <div className="appointments-section">
         {!selectedDate ? (
           <div className="no-date-selected">
@@ -223,28 +213,7 @@ const CalendarView = ({ events, currentUser }) => {
               </div>
             )}
 
-            {/* Legend */}
-            {/* <div className="calendar-legend">
-              <div className="legend-title">Appointment Status:</div>
-              <div className="legend-items">
-                <div className="legend-item">
-                  <div className="legend-color" style={{ backgroundColor: getStatusColor('pending') }}></div>
-                  <span>Pending</span>
-                </div>
-                <div className="legend-item">
-                  <div className="legend-color" style={{ backgroundColor: getStatusColor('confirmed') }}></div>
-                  <span>Confirmed</span>
-                </div>
-                <div className="legend-item">
-                  <div className="legend-color" style={{ backgroundColor: getStatusColor('completed') }}></div>
-                  <span>Completed</span>
-                </div>
-                <div className="legend-item">
-                  <div className="legend-color" style={{ backgroundColor: getStatusColor('cancelled') }}></div>
-                  <span>Cancelled</span>
-                </div>
-              </div>
-            </div> */}
+
           </>
         )}
       </div>
@@ -257,7 +226,6 @@ const CalendarView = ({ events, currentUser }) => {
           height: 700px;
         }
 
-        /* Calendar Section */
         .calendar-section {
           background: white;
           border-radius: 16px;
@@ -391,7 +359,6 @@ const CalendarView = ({ events, currentUser }) => {
           font-weight: 600;
         }
 
-        /* Appointments Section */
         .appointments-section {
           background: white;
           border-radius: 16px;
@@ -569,7 +536,6 @@ const CalendarView = ({ events, currentUser }) => {
           color: #dc2626;
         }
 
-        /* Legend */
         .calendar-legend {
           margin-top: 25px;
           padding-top: 20px;

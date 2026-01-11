@@ -21,66 +21,51 @@ const handleSupabaseError = (error, operation) => {
   return { success: false, error: errorMessage };
 }
 
-// UPDATED: FIXED checkTimeConflicts function with proper overlap detection for all scenarios
 const checkTimeConflicts = (existingAppointments, slotStartMinutes, slotEndMinutes, bufferMinutes = 60, allowConcurrent = false, serviceType = null) => {
-  // If there are no existing appointments, no conflict
   if (!existingAppointments || existingAppointments.length === 0) {
     return { hasConflict: false };
   }
   
-  // For all appointments, check for conflicts
   for (const appointment of existingAppointments) {
     const [appHours, appMinutes] = appointment.appointment_time.split(':').map(Number);
     const appStartMinutes = appHours * 60 + appMinutes;
     const appDuration = appointment.service_duration || 60;
     const appEndMinutes = appStartMinutes + appDuration;
-    const bufferStartMinutes = appEndMinutes; // Buffer starts immediately after appointment
-    const bufferEndMinutes = appEndMinutes + bufferMinutes; // Buffer ends after buffer duration
+    const bufferStartMinutes = appEndMinutes;
+    const bufferEndMinutes = appEndMinutes + bufferMinutes; 
     
     let hasConflict = false;
     
     if (allowConcurrent && serviceType) {
-      // For concurrent appointments:
       if (appointment.service_type === serviceType) {
-        // Same service type - only check buffer violations (can run at same time)
         const violatesBuffer = 
-          (slotStartMinutes >= appEndMinutes && slotStartMinutes < bufferEndMinutes) ||  // New appointment STARTS during buffer
-          (slotEndMinutes > appEndMinutes && slotEndMinutes <= bufferEndMinutes);        // New appointment ENDS during buffer
+          (slotStartMinutes >= appEndMinutes && slotStartMinutes < bufferEndMinutes) ||  
+          (slotEndMinutes > appEndMinutes && slotEndMinutes <= bufferEndMinutes);      
         
         hasConflict = violatesBuffer;
       } else {
-        // Different service type - check normal conflicts including buffer
-        
-        // Check for ANY overlap (even partial)
         const overlaps = 
-          (slotStartMinutes >= appStartMinutes && slotStartMinutes < appEndMinutes) ||   // New starts during existing
-          (slotEndMinutes > appStartMinutes && slotEndMinutes <= appEndMinutes) ||       // New ends during existing
-          (slotStartMinutes <= appStartMinutes && slotEndMinutes >= appEndMinutes);      // New completely encompasses existing
+          (slotStartMinutes >= appStartMinutes && slotStartMinutes < appEndMinutes) ||   
+          (slotEndMinutes > appStartMinutes && slotEndMinutes <= appEndMinutes) ||       
+          (slotStartMinutes <= appStartMinutes && slotEndMinutes >= appEndMinutes);      
         
-        // Check for buffer conflicts
         const startsDuringBuffer = slotStartMinutes >= appEndMinutes && slotStartMinutes < bufferEndMinutes;
         const endsDuringBuffer = slotEndMinutes > appEndMinutes && slotEndMinutes <= bufferEndMinutes;
         
-        // Check if new appointment starts BEFORE but ends DURING or AFTER existing appointment
         const startsBeforeEndsDuringOrAfter = 
           (slotStartMinutes < appStartMinutes && slotEndMinutes > appStartMinutes);
         
         hasConflict = overlaps || startsDuringBuffer || endsDuringBuffer || startsBeforeEndsDuringOrAfter;
       }
     } else {
-      // Standard conflict checking for non-concurrent appointments
-      
-      // Check for ANY overlap (even partial)
       const overlaps = 
-        (slotStartMinutes >= appStartMinutes && slotStartMinutes < appEndMinutes) ||   // New starts during existing
-        (slotEndMinutes > appStartMinutes && slotEndMinutes <= appEndMinutes) ||       // New ends during existing
-        (slotStartMinutes <= appStartMinutes && slotEndMinutes >= appEndMinutes);      // New completely encompasses existing
+        (slotStartMinutes >= appStartMinutes && slotStartMinutes < appEndMinutes) ||  
+        (slotEndMinutes > appStartMinutes && slotEndMinutes <= appEndMinutes) ||       
+        (slotStartMinutes <= appStartMinutes && slotEndMinutes >= appEndMinutes);    
       
-      // Check for buffer conflicts
       const startsDuringBuffer = slotStartMinutes >= appEndMinutes && slotStartMinutes < bufferEndMinutes;
       const endsDuringBuffer = slotEndMinutes > appEndMinutes && slotEndMinutes <= bufferEndMinutes;
       
-      // Check if new appointment starts BEFORE but ends DURING or AFTER existing appointment
       const startsBeforeEndsDuringOrAfter = 
         (slotStartMinutes < appStartMinutes && slotEndMinutes > appStartMinutes);
       
@@ -88,8 +73,7 @@ const checkTimeConflicts = (existingAppointments, slotStartMinutes, slotEndMinut
     }
     
     if (hasConflict) {
-      // Calculate next available time based on the end of the buffer
-      const nextAvailableMinutes = bufferEndMinutes; // After buffer ends
+      const nextAvailableMinutes = bufferEndMinutes; 
       const nextAvailableHour = Math.floor(nextAvailableMinutes / 60);
       const nextAvailableMinute = nextAvailableMinutes % 60;
       const displayHour = nextAvailableHour % 12 || 12;
@@ -162,10 +146,8 @@ export const servicesService = {
     }
   },
 
-  // UPDATED: getAvailableTimeSlots with same-time concurrent logic
   async getAvailableTimeSlots(serviceId, date, durationMinutes = 60) {
     try {
-      // Get service details including allow_concurrent
       const { data: service, error: serviceError } = await supabase
         .from('services')
         .select('duration_minutes, allowed_days, service_name, allow_concurrent')
@@ -177,7 +159,6 @@ export const servicesService = {
         return handleSupabaseError(serviceError, 'fetch service details');
       }
       
-      // Check if date is in allowed days
       const selectedDate = new Date(date);
       const dayOfWeek = selectedDate.getDay();
       
@@ -189,7 +170,6 @@ export const servicesService = {
         };
       }
       
-      // Get existing appointments for the date
       const { data: existingAppointments, error: appointmentsError } = await supabase
         .from('appointments')
         .select('appointment_time, service_duration, service_type')
@@ -203,44 +183,37 @@ export const servicesService = {
       
       console.log('📅 Existing appointments for', date, ':', existingAppointments?.length || 0);
       
-      // Check if there are already bookings for this SAME concurrent service
       const existingSameServiceAppointments = existingAppointments?.filter(
         app => app.service_type === service.service_name && service.allow_concurrent
       ) || [];
       
       console.log('🔀 Existing same-service concurrent appointments:', existingSameServiceAppointments.length);
       
-      // Generate all possible time slots for the day (8 AM to 5 PM)
       const availableSlots = [];
       const startHour = 8;
       const endHour = 17;
-      const bufferMinutes = 60; // 1-hour buffer
+      const bufferMinutes = 60;
       const serviceDuration = durationMinutes || service.duration_minutes || 60;
       
       console.log(`🔍 Checking time slots for ${date}, duration: ${serviceDuration} minutes, concurrent: ${service.allow_concurrent}, service name: ${service.service_name}`);
       
-      // If there are existing concurrent appointments for this service, ONLY show that time slot
       if (service.allow_concurrent && existingSameServiceAppointments.length > 0) {
         const firstAppointment = existingSameServiceAppointments[0];
         const [appHours, appMinutes] = firstAppointment.appointment_time.split(':').map(Number);
         const appStartMinutes = appHours * 60 + appMinutes;
         
-        // Calculate slot end time
         const slotStartMinutes = appStartMinutes;
         const slotEndMinutes = slotStartMinutes + serviceDuration;
         
-        // Check if this slot would end after 5 PM
         const slotEndHour = Math.floor(slotEndMinutes / 60);
         const slotEndMinute = slotEndMinutes % 60;
         
-        // Only include if it doesn't end after closing time
         if (!(slotEndHour > endHour || (slotEndHour === endHour && slotEndMinute > 0))) {
           const displayHour = Math.floor(appStartMinutes / 60) % 12 || 12;
           const period = Math.floor(appStartMinutes / 60) >= 12 ? 'PM' : 'AM';
           const displayMinute = appStartMinutes % 60;
           const displayTime = `${displayHour}:${displayMinute.toString().padStart(2, '0')} ${period}`;
           
-          // Check if this slot has conflicts with OTHER services
           const conflictResult = checkTimeConflicts(
             existingAppointments || [],
             slotStartMinutes,
@@ -266,23 +239,18 @@ export const servicesService = {
           }
         }
       } else {
-        // No existing concurrent appointments - show all available slots
         for (let hour = startHour; hour <= endHour; hour++) {
           for (let minute = 0; minute < 60; minute += 30) {
-            // Calculate slot start and end times
             const slotStartMinutes = hour * 60 + minute;
             const slotEndMinutes = slotStartMinutes + serviceDuration;
             
-            // Check if slot would end after 5 PM
             const slotEndHour = Math.floor(slotEndMinutes / 60);
             const slotEndMinute = slotEndMinutes % 60;
             
-            // Skip if slot ends after closing time (5 PM)
             if (slotEndHour > endHour || (slotEndHour === endHour && slotEndMinute > 0)) {
               continue;
             }
             
-            // Check if this slot conflicts with existing appointments
             const conflictResult = checkTimeConflicts(
               existingAppointments || [],
               slotStartMinutes,
@@ -335,7 +303,6 @@ export const servicesService = {
       let allDaysAvailable = true;
       const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
       
-      // Get service details including allow_concurrent
       const { data: service, error: serviceError } = await supabase
         .from('services')
         .select('allowed_days, duration_minutes, service_name, allow_concurrent')
@@ -355,7 +322,6 @@ export const servicesService = {
         
         const isAllowed = !service.allowed_days || service.allowed_days.length === 0 || service.allowed_days.includes(dayOfWeek);
         
-        // Get existing appointments for this day
         const { data: existingAppointments, error: dayError } = await supabase
           .from('appointments')
           .select('appointment_time, service_duration, service_type')
@@ -376,18 +342,15 @@ export const servicesService = {
           continue;
         }
         
-        // Check for existing concurrent appointments of same service
         const existingSameServiceAppointments = existingAppointments?.filter(
           app => app.service_type === service.service_name && service.allow_concurrent
         ) || [];
         
-        // Calculate how many slots are available
         let availableSlotsCount = 0;
         const startHour = 8;
         const endHour = 17;
         const serviceDuration = service.duration_minutes || 60;
         
-        // If there are existing concurrent appointments, only check that specific time
         if (service.allow_concurrent && existingSameServiceAppointments.length > 0) {
           const firstAppointment = existingSameServiceAppointments[0];
           const [appHours, appMinutes] = firstAppointment.appointment_time.split(':').map(Number);
@@ -398,7 +361,6 @@ export const servicesService = {
           const slotEndHour = Math.floor(slotEndMinutes / 60);
           const slotEndMinute = slotEndMinutes % 60;
           
-          // Check if this slot is valid (not after closing)
           if (!(slotEndHour > endHour || (slotEndHour === endHour && slotEndMinute > 0))) {
             const conflictResult = checkTimeConflicts(
               existingAppointments || [],
@@ -410,11 +372,10 @@ export const servicesService = {
             );
             
             if (!conflictResult.hasConflict) {
-              availableSlotsCount = 1; // Only one concurrent slot available
+              availableSlotsCount = 1; 
             }
           }
         } else {
-          // No existing concurrent appointments - check all slots
           for (let hour = startHour; hour <= endHour; hour++) {
             for (let minute = 0; minute < 60; minute += 30) {
               const slotStartMinutes = hour * 60 + minute;
@@ -509,7 +470,6 @@ export const servicesService = {
         return handleSupabaseError(error, 'create service');
       }
 
-      // Add predefined requirements if provided
       if (serviceData.requirements && serviceData.requirements.length > 0) {
         const requirements = serviceData.requirements.map(req => ({
           service_id: data.service_id,
@@ -558,16 +518,13 @@ export const servicesService = {
         return handleSupabaseError(error, 'update service');
       }
 
-      // Update requirements if provided
       if (serviceData.requirements) {
-        // Delete existing predefined requirements
         await supabase
           .from('requirements')
           .delete()
           .eq('service_id', serviceId)
           .eq('is_predefined', true);
 
-        // Add new requirements
         if (serviceData.requirements.length > 0) {
           const requirements = serviceData.requirements.map(req => ({
             service_id: serviceId,
@@ -595,7 +552,6 @@ export const servicesService = {
         return { success: false, error: 'Only administrators can delete services' };
       }
 
-      // Check if service has appointments
       const { data: appointments, error: checkError } = await supabase
         .from('appointments')
         .select('appointment_id')
@@ -613,13 +569,11 @@ export const servicesService = {
         };
       }
 
-      // Delete service requirements first
       await supabase
         .from('requirements')
         .delete()
         .eq('service_id', serviceId);
 
-      // Delete the service
       const { error } = await supabase
         .from('services')
         .delete()
@@ -635,7 +589,6 @@ export const servicesService = {
     }
   },
 
-  // UPDATED: validateServiceTime with same-time concurrent logic
   async validateServiceTime(serviceId, date, time, appointmentId = null) {
     try {
       const { data: service, error: serviceError } = await supabase
@@ -648,7 +601,6 @@ export const servicesService = {
         return handleSupabaseError(serviceError, 'fetch service details');
       }
 
-      // Check if date is allowed
       const selectedDate = new Date(date);
       const dayOfWeek = selectedDate.getDay();
       
@@ -661,7 +613,6 @@ export const servicesService = {
         };
       }
 
-      // Check for time conflicts
       const [hours, minutes] = time.split(':').map(Number);
       const appointmentStartMinutes = hours * 60 + minutes;
       const appointmentEndMinutes = appointmentStartMinutes + (service.duration_minutes || 60);
@@ -682,14 +633,12 @@ export const servicesService = {
         return handleSupabaseError(appointmentsError, 'fetch existing appointments');
       }
 
-      // Check for existing concurrent appointments of the same service
       if (service.allow_concurrent) {
         const existingConcurrentAppointments = existingAppointments?.filter(
           app => app.service_type === service.service_name
         ) || [];
         
         if (existingConcurrentAppointments.length > 0) {
-          // Check if trying to book at different time than existing concurrent appointments
           const firstConcurrentApp = existingConcurrentAppointments[0];
           const [concurrentHours, concurrentMinutes] = firstConcurrentApp.appointment_time.split(':').map(Number);
           const concurrentStartMinutes = concurrentHours * 60 + concurrentMinutes;
@@ -710,7 +659,6 @@ export const servicesService = {
         }
       }
 
-      // Check for conflicts using the updated checkTimeConflicts function
       const conflictResult = checkTimeConflicts(
         existingAppointments || [],
         appointmentStartMinutes,

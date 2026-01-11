@@ -204,10 +204,6 @@ const AppointmentHistoryPage = () => {
             <div className="stat-number" style={{ color: '#28a745' }}>{statusCounts.completed}</div>
             <div className="stat-label">Completed</div>
           </div>
-          {/* <div className="stat-card">
-            <div className="stat-number" style={{ color: '#dc3545' }}>{statusCounts.cancelled}</div>
-            <div className="stat-label">Cancelled</div>
-          </div> */}
           <div className="stat-card">
             <div className="stat-number" style={{ color: '#6c757d' }}>{statusCounts.expired + statusCounts.noshow}</div>
             <div className="stat-label">Other</div>
@@ -224,27 +220,6 @@ const AppointmentHistoryPage = () => {
               className="search-input"
             />
           </div>
-          
-          {/* <div className="status-filters">
-            <button 
-              className={`filter-btn ${filterStatus === 'all' ? 'active' : ''}`}
-              onClick={() => setFilterStatus('all')}
-            >
-              All ({statusCounts.all})
-            </button>
-            <button 
-              className={`filter-btn ${filterStatus === 'completed' ? 'active' : ''}`}
-              onClick={() => setFilterStatus('completed')}
-            >
-              Completed ({statusCounts.completed})
-            </button>
-            <button 
-              className={`filter-btn ${filterStatus === 'cancelled' ? 'active' : ''}`}
-              onClick={() => setFilterStatus('cancelled')}
-            >
-              Cancelled ({statusCounts.cancelled})
-            </button>
-          </div> */}
         </div>
 
         {loading ? (
@@ -301,17 +276,6 @@ const AppointmentHistoryPage = () => {
                     </div>
                   </div>
                 </div>
-
-                {/* <div className="appointment-actions">
-                  {currentUser && (currentUser.role === 'admin' || currentUser.role === 'staff') && (
-                    <button 
-                      onClick={() => handleRestoreAppointment(appointment.archived_id)}
-                      className="btn-restore"
-                    >
-                      Restore to Active
-                    </button>
-                  )}
-                </div> */}
               </div>
             ))}
           </div>

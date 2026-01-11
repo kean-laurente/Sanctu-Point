@@ -83,7 +83,6 @@ const BookAppointmentPage = () => {
 
   useEffect(() => {
     if (isAnonymousBooking) {
-      // Auto-fill with anonymous data
       setFormData(prev => ({
         ...prev,
         first_name: 'Anonymous',
@@ -92,7 +91,6 @@ const BookAppointmentPage = () => {
         phone: ''
       }))
     } else {
-      // Clear the fields when turning off anonymous booking
       setFormData(prev => ({
         ...prev,
         first_name: '',
@@ -602,7 +600,6 @@ const BookAppointmentPage = () => {
     if (!formData.time.trim()) errors.push('Time is required')
     if (!formData.service_type.trim()) errors.push('Service type is required')
     
-    // Only validate personal info if not anonymous booking
     if (!isAnonymousBooking) {
       if (!formData.first_name.trim()) errors.push('First name is required')
       if (!formData.last_name.trim()) errors.push('Last name is required')
@@ -859,7 +856,7 @@ const BookAppointmentPage = () => {
       const result = await offeringService.processOfferingOnly(
         {
           ...offeringData,
-          customer_name: offeringData.customer_name.trim() || 'Anonymous Donor', // Default value
+          customer_name: offeringData.customer_name.trim() || 'Anonymous Donor',
           items: selectedProducts
         },
         currentUser
@@ -971,7 +968,6 @@ const BookAppointmentPage = () => {
 
         {isOfferingOnly ? (
           <form onSubmit={handleSubmitOfferingOnly} className="offering-form">
-            {/* Offering form remains the same - you can add anonymous option here too if needed */}
             <div className="form-section">
               <div className="section-title">
                 <h3>Customer Information</h3>
@@ -1029,7 +1025,6 @@ const BookAppointmentPage = () => {
               </div>
             </div>
 
-            {/* Products selection and payment sections remain the same */}
             <div className="form-section offerings-section">
               <div className="section-title">
                 <h3>Select Offerings</h3>
@@ -1197,7 +1192,6 @@ const BookAppointmentPage = () => {
                 <p>Provide your contact details</p>
               </div>
               
-              {/* Anonymous Booking Toggle */}
               <div className="anonymous-booking-toggle">
                 <label className="toggle-label">
                   <input
@@ -1342,9 +1336,6 @@ const BookAppointmentPage = () => {
                     </option>
                   ))}
                 </select>
-                {/* <small className="input-hint">
-                  📋 = Has requirements | 🔄 = Multi-day service | ⏱️ = Duration | 🔀 = Concurrent allowed
-                </small> */}
               </div>
 
               <div className="form-row">
@@ -1361,11 +1352,6 @@ const BookAppointmentPage = () => {
                     required
                     disabled={loading || !selectedService}
                   />
-                  {/* <small className="input-hint">
-                    {selectedService 
-                      ? ''
-                      : 'Select a service first'}
-                  </small> */}
                 </div>
 
                 <div className="form-group">
@@ -1877,7 +1863,6 @@ const BookAppointmentPage = () => {
           font-size: 14px;
         }
 
-        /* Anonymous Booking Toggle Styles */
         .anonymous-booking-toggle {
           margin-bottom: 24px;
           padding: 16px;

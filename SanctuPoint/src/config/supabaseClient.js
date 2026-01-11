@@ -8,12 +8,10 @@ console.log('🔧 Supabase Configuration:', {
   key: supabaseAnonKey ? '✅ Set' : '❌ Missing'
 })
 
-// Validate URL format
 if (supabaseUrl && !supabaseUrl.startsWith('https://')) {
   console.error('❌ Supabase URL must start with https://')
 }
 
-// Singleton instance
 let supabaseInstance = null
 
 export const getSupabaseClient = () => {
@@ -25,7 +23,7 @@ export const getSupabaseClient = () => {
       try {
         supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
           auth: {
-            persistSession: false, // We're using custom auth, disable Supabase auth persistence
+            persistSession: false, 
             autoRefreshToken: false,
             detectSessionInUrl: false
           },
@@ -48,7 +46,6 @@ export const getSupabaseClient = () => {
 
 export const supabase = getSupabaseClient()
 
-// Mock client for development
 function createMockClient() {
   console.log('🔄 Using mock Supabase client')
   return {

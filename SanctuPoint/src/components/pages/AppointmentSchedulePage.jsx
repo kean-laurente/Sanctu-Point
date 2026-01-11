@@ -187,7 +187,6 @@ const AppointmentSchedulePage = () => {
     return { text: 'Unpaid', color: '#dc3545' }
   }
 
-  // Filter appointments based on search and status
   const filteredAppointments = appointments.filter(appointment => {
     const matchesStatus = filterStatus === 'all' || appointment.status === filterStatus
     const matchesSearch = searchTerm === '' || 
@@ -199,7 +198,6 @@ const AppointmentSchedulePage = () => {
     return matchesStatus && matchesSearch
   })
 
-  // Get status counts for filters
   const getStatusCounts = () => {
     const counts = {
       all: appointments.length,
@@ -212,7 +210,6 @@ const AppointmentSchedulePage = () => {
     return counts
   }
 
-  // Format appointments for calendar view
   const getCalendarEvents = () => {
     return appointments.map(appointment => ({
       id: appointment.appointment_id,
@@ -292,10 +289,8 @@ const AppointmentSchedulePage = () => {
     
     setSelectedAppointment(appointment);
     
-    // Initialize updates based on current requirements
     const initialUpdates = {};
     
-    // Handle different possible data structures
     const requirements = appointment.requirements || [];
     
     requirements.forEach(req => {
@@ -327,7 +322,6 @@ const AppointmentSchedulePage = () => {
       return null;
     }
 
-    // Ensure requirements have the proper structure
     const requirements = appointment.requirements.map(req => ({
       requirement_id: req.requirement_id || `temp-${Math.random()}`,
       requirement_details: req.requirement_details || req.details || 'Unknown requirement',
@@ -441,38 +435,7 @@ const AppointmentSchedulePage = () => {
               />
             </div>
             
-            {/* <div className="status-filters">
-              <button 
-                className={`filter-btn ${filterStatus === 'all' ? 'active' : ''}`}
-                onClick={() => setFilterStatus('all')}
-              >
-                All ({statusCounts.all})
-              </button>
-              <button 
-                className={`filter-btn ${filterStatus === 'pending' ? 'active' : ''}`}
-                onClick={() => setFilterStatus('pending')}
-              >
-                Pending ({statusCounts.pending})
-              </button>
-              <button 
-                className={`filter-btn ${filterStatus === 'confirmed' ? 'active' : ''}`}
-                onClick={() => setFilterStatus('confirmed')}
-              >
-                Confirmed ({statusCounts.confirmed})
-              </button>
-              <button 
-                className={`filter-btn ${filterStatus === 'completed' ? 'active' : ''}`}
-                onClick={() => setFilterStatus('completed')}
-              >
-                Completed ({statusCounts.completed})
-              </button>
-              <button 
-                className={`filter-btn ${filterStatus === 'cancelled' ? 'active' : ''}`}
-                onClick={() => setFilterStatus('cancelled')}
-              >
-                Cancelled ({statusCounts.cancelled})
-              </button>
-            </div> */}
+
           </div>
         )}
 
@@ -634,7 +597,6 @@ const AppointmentSchedulePage = () => {
                       )}
                     </div>
 
-                    {/* Payment Information */}
                     {appointment.payment_status === 'paid' && (
                       <div className="payment-info">
                         <p><strong>Payment Details:</strong></p>
@@ -657,7 +619,6 @@ const AppointmentSchedulePage = () => {
                       </div>
                     )}
 
-                    {/* Requirements Section - THIS IS WHERE IT'S BEING USED */}
                     {renderRequirementsSection(appointment)}
                   </div>
 
@@ -821,7 +782,6 @@ const AppointmentSchedulePage = () => {
           color: #16a34a;
         }
 
-        /* Search and Filter Styles */
         .filters-section {
           display: flex;
           flex-direction: column;
@@ -949,7 +909,6 @@ const AppointmentSchedulePage = () => {
           box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3);
         }
 
-        /* List View Styles */
         .appointments-list {
           display: grid;
           gap: 20px;
@@ -1420,7 +1379,6 @@ const AppointmentSchedulePage = () => {
           box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
         }
 
-        /* Modal Styles */
         .modal-overlay {
           position: fixed;
           top: 0;

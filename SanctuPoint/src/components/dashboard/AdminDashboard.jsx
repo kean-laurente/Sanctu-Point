@@ -37,12 +37,10 @@ const AdminDashboard = ({ user, onLogout, onStaffUpdate }) => {
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      // Load stats
       const today = new Date().toISOString().split('T')[0];
       const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
         .toISOString().split('T')[0];
       
-      // Get appointment stats
       const statsResult = await appointmentService.getAppointmentStats(
         startOfMonth,
         today,
@@ -60,14 +58,12 @@ const AdminDashboard = ({ user, onLogout, onStaffUpdate }) => {
         }));
       }
 
-      // Get staff count
       const staffMembers = await authService.getStaffMembers();
       setStats(prev => ({
         ...prev,
         staffCount: staffMembers.length
       }));
 
-      // Get today's revenue
       const todayReport = await appointmentService.getDailyReport(today);
       if (todayReport.success) {
         setStats(prev => ({
@@ -76,7 +72,6 @@ const AdminDashboard = ({ user, onLogout, onStaffUpdate }) => {
         }));
       }
 
-      // Get offerings summary
       const offeringsResult = await offeringService.getOfferingsSummary(
         startOfMonth,
         today,
@@ -89,10 +84,8 @@ const AdminDashboard = ({ user, onLogout, onStaffUpdate }) => {
         }));
       }
 
-      // Load recent activity
       await loadRecentActivity();
       
-      // Load upcoming appointments
       await loadUpcomingAppointments();
 
     } catch (error) {
@@ -104,7 +97,6 @@ const AdminDashboard = ({ user, onLogout, onStaffUpdate }) => {
 
   const loadRecentActivity = async () => {
     try {
-      // Get recent appointments (last 10)
       const result = await appointmentService.getAppointments(user);
       if (result.success) {
         const recentAppointments = result.data
@@ -119,7 +111,6 @@ const AdminDashboard = ({ user, onLogout, onStaffUpdate }) => {
             status: appointment.status
           }));
 
-        // Get recent staff additions
         const staffMembers = await authService.getStaffMembers();
         const recentStaff = staffMembers
           .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
@@ -132,7 +123,6 @@ const AdminDashboard = ({ user, onLogout, onStaffUpdate }) => {
             icon: '👥'
           }));
 
-        // Combine and sort by time
         const allActivities = [...recentAppointments, ...recentStaff]
           .sort((a, b) => b.time - a.time)
           .slice(0, 5);
@@ -207,27 +197,15 @@ const AdminDashboard = ({ user, onLogout, onStaffUpdate }) => {
                 >
                   {loading ? 'Refreshing...' : '🔄 Refresh'}
                 </button>
-                {/* <button 
-                  onClick={() => setCurrentPage('daily-reports')}
-                  className="reports-btn"
-                >
-                  📊 Generate Report
-                </button> */}
               </div>
             </div>
             
-            {/* Stats Cards */}
             <div className="stats-grid mb-8">
               <div className="stat-card blue">
                 <div className="stat-icon">📅</div>
                 <div className="stat-content">
                   <h3 className="stat-number">{stats.totalAppointments}</h3>
                   <p className="stat-label">Total Appointments</p>
-                  {/* <div className="stat-subtext">
-                    <span className="sub-item pending">{stats.pendingAppointments} Pending</span>
-                    <span className="sub-item confirmed">{stats.confirmedAppointments} Confirmed</span>
-                    <span className="sub-item completed">{stats.completedAppointments} Completed</span>
-                  </div> */}
                 </div>
               </div>
               
@@ -236,10 +214,6 @@ const AdminDashboard = ({ user, onLogout, onStaffUpdate }) => {
                 <div className="stat-content">
                   <h3 className="stat-number">₱{stats.paidAmount.toLocaleString()}</h3>
                   <p className="stat-label">Monthly Revenue</p>
-                  {/* <div className="stat-subtext">
-                    <span className="sub-item">Today: ₱{stats.todayRevenue.toLocaleString()}</span>
-                    <span className="sub-item">Offerings: ₱{stats.totalOfferings.toLocaleString()}</span>
-                  </div> */}
                 </div>
               </div>
               
@@ -248,10 +222,6 @@ const AdminDashboard = ({ user, onLogout, onStaffUpdate }) => {
                 <div className="stat-content">
                   <h3 className="stat-number">{stats.staffCount}</h3>
                   <p className="stat-label">Staff Members</p>
-                  {/* <div className="stat-subtext">
-                    <span className="sub-item">Active: {stats.staffCount}</span>
-                    <span className="sub-item">Manage staff accounts</span>
-                  </div> */}
                 </div>
               </div>
               
@@ -260,91 +230,11 @@ const AdminDashboard = ({ user, onLogout, onStaffUpdate }) => {
                 <div className="stat-content">
                   <h3 className="stat-number">{upcomingAppointments.length}</h3>
                   <p className="stat-label">Upcoming Today</p>
-                  {/* <div className="stat-subtext">
-                    {upcomingAppointments.length > 0 ? (
-                      <span className="sub-item">Next: {upcomingAppointments[0]?.appointment_time}</span>
-                    ) : (
-                      <span className="sub-item">No appointments today</span>
-                    )}
-                  </div> */}
                 </div>
               </div>
             </div>
 
-            {/* Quick Actions */}
-            {/* <div className="quick-actions mb-8">
-              <h3 className="section-title">Quick Actions</h3>
-              <div className="actions-grid">
-                <button 
-                  onClick={() => setCurrentPage('book-appointment')}
-                  className="action-card primary"
-                >
-                  <div className="action-icon">➕</div>
-                  <div className="action-content">
-                    <h4>Book Appointment</h4>
-                    <p>Create new appointment for client</p>
-                  </div>
-                </button>
-                
-                <button 
-                  onClick={() => setCurrentPage('appointment-schedule')}
-                  className="action-card secondary"
-                >
-                  <div className="action-icon">📋</div>
-                  <div className="action-content">
-                    <h4>View Schedule</h4>
-                    <p>See all scheduled appointments</p>
-                  </div>
-                </button>
-                
-                <button 
-                  onClick={handleStaffManagementClick}
-                  className="action-card success"
-                >
-                  <div className="action-icon">👥</div>
-                  <div className="action-content">
-                    <h4>Manage Staff</h4>
-                    <p>Add, edit, or remove staff accounts</p>
-                  </div>
-                </button>
-                
-                <button 
-                  onClick={() => setCurrentPage('daily-reports')}
-                  className="action-card warning"
-                >
-                  <div className="action-icon">📊</div>
-                  <div className="action-content">
-                    <h4>Daily Reports</h4>
-                    <p>Generate accounting reports</p>
-                  </div>
-                </button>
-
-                <button 
-                  onClick={() => setCurrentPage('donation')}
-                  className="action-card info"
-                >
-                  <div className="action-icon">🎁</div>
-                  <div className="action-content">
-                    <h4>Record Offering</h4>
-                    <p>Record standalone offering/donation</p>
-                  </div>
-                </button>
-
-                <button 
-                  onClick={() => setCurrentPage('services')}
-                  className="action-card danger"
-                >
-                  <div className="action-icon">⚙️</div>
-                  <div className="action-content">
-                    <h4>Manage Services</h4>
-                    <p>Configure church services & prices</p>
-                  </div>
-                </button>
-              </div>
-            </div> */}
-
             <div className="dashboard-grid">
-              {/* Upcoming Appointments */}
               <div className="dashboard-card">
                 <div className="card-header">
                   <h3 className="card-title">Today's Appointments</h3>
@@ -383,7 +273,6 @@ const AdminDashboard = ({ user, onLogout, onStaffUpdate }) => {
                 </div>
               </div>
 
-              {/* Recent Activity */}
               <div className="dashboard-card">
                 <div className="card-header">
                   <h3 className="card-title">Recent Activity</h3>
@@ -412,19 +301,6 @@ const AdminDashboard = ({ user, onLogout, onStaffUpdate }) => {
                 </div>
               </div>
             </div>
-
-            {/* Test Tools (Development Only) */}
-            {/* {process.env.NODE_ENV === 'development' && (
-              <div className="test-tools">
-                <h4 className="text-lg font-semibold mb-4 text-gray-700">Development Tools</h4>
-                <button 
-                  onClick={handlePrintTestReceipt}
-                  className="test-btn"
-                >
-                  🖨️ Print Test Receipt
-                </button>
-              </div>
-            )} */}
           </div>
         );
       

@@ -30,17 +30,14 @@ const StaffDashboard = ({ user, onLogout }) => {
     try {
       const today = new Date().toISOString().split('T')[0];
       
-      // Load upcoming appointments
       const appointmentsResult = await appointmentService.getUpcomingAppointments(10, user);
       if (appointmentsResult.success) {
         setUpcomingAppointments(appointmentsResult.data);
         
-        // Calculate today's appointments
         const todayAppts = appointmentsResult.data.filter(
           appt => appt.appointment_date === today
         );
         
-        // Calculate pending and confirmed appointments
         const pendingAppts = appointmentsResult.data.filter(
           appt => appt.status === 'pending'
         ).length;
@@ -57,7 +54,6 @@ const StaffDashboard = ({ user, onLogout }) => {
         }));
       }
 
-      // Load recent appointments (for activity feed)
       const allAppointments = await appointmentService.getAppointments(user);
       if (allAppointments.success) {
         const recent = allAppointments.data
@@ -75,7 +71,6 @@ const StaffDashboard = ({ user, onLogout }) => {
         setRecentActivity(recent);
       }
 
-      // Load today's revenue
       const todayReport = await appointmentService.getDailyReport(today);
       if (todayReport.success) {
         setStats(prev => ({
@@ -84,7 +79,6 @@ const StaffDashboard = ({ user, onLogout }) => {
         }));
       }
 
-      // Load total monthly revenue
       const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
         .toISOString().split('T')[0];
       
@@ -163,26 +157,15 @@ const StaffDashboard = ({ user, onLogout }) => {
                 >
                   {loading ? 'Refreshing...' : '🔄 Refresh'}
                 </button>
-                {/* <button 
-                  onClick={() => setCurrentPage('book-appointment')}
-                  className="quick-action-btn"
-                >
-                  ➕ Book New Appointment
-                </button> */}
               </div>
             </div>
             
-            {/* Stats Cards */}
             <div className="stats-grid mb-8">
               <div className="stat-card blue">
                 <div className="stat-icon">📅</div>
                 <div className="stat-content">
                   <h3 className="stat-number">{stats.todayAppointments}</h3>
                   <p className="stat-label">Today's Appointments</p>
-                  {/* <div className="stat-subtext">
-                    <span className="sub-item pending">{stats.pendingAppointments} Pending</span>
-                    <span className="sub-item confirmed">{stats.confirmedAppointments} Confirmed</span>
-                  </div> */}
                 </div>
               </div>
               
@@ -191,9 +174,6 @@ const StaffDashboard = ({ user, onLogout }) => {
                 <div className="stat-content">
                   <h3 className="stat-number">₱{stats.totalRevenue.toLocaleString()}</h3>
                   <p className="stat-label">Monthly Revenue</p>
-                  {/* <div className="stat-subtext">
-                    <span className="sub-item">Today: ₱{stats.todayRevenue.toLocaleString()}</span>
-                  </div> */}
                 </div>
               </div>
               
@@ -202,10 +182,6 @@ const StaffDashboard = ({ user, onLogout }) => {
                 <div className="stat-content">
                   <h3 className="stat-number">{user.staff_id || 'STAFF'}</h3>
                   <p className="stat-label">Your Staff ID</p>
-                  {/* <div className="stat-subtext">
-                    <span className="sub-item">Role: Staff Member</span>
-                    <span className="sub-item">{user.email}</span>
-                  </div> */}
                 </div>
               </div>
               
@@ -214,69 +190,11 @@ const StaffDashboard = ({ user, onLogout }) => {
                 <div className="stat-content">
                   <h3 className="stat-number">{upcomingAppointments.length}</h3>
                   <p className="stat-label">Upcoming</p>
-                  {/* <div className="stat-subtext">
-                    {upcomingAppointments.length > 0 ? (
-                      <span className="sub-item">Next: {formatTime(upcomingAppointments[0]?.appointment_time)}</span>
-                    ) : (
-                      <span className="sub-item">No upcoming appointments</span>
-                    )}
-                  </div> */}
                 </div>
               </div>
             </div>
 
-            {/* Quick Actions */}
-            {/* <div className="quick-actions mb-8">
-              <h3 className="section-title">Quick Actions</h3>
-              <div className="actions-grid">
-                <button 
-                  onClick={() => setCurrentPage('book-appointment')}
-                  className="action-card primary"
-                >
-                  <div className="action-icon">➕</div>
-                  <div className="action-content">
-                    <h4>Book Appointment</h4>
-                    <p>Create new appointment for client</p>
-                  </div>
-                </button>
-                
-                <button 
-                  onClick={() => setCurrentPage('appointment-schedule')}
-                  className="action-card secondary"
-                >
-                  <div className="action-icon">📋</div>
-                  <div className="action-content">
-                    <h4>View Schedule</h4>
-                    <p>See all scheduled appointments</p>
-                  </div>
-                </button>
-                
-                <button 
-                  onClick={() => setCurrentPage('services')}
-                  className="action-card success"
-                >
-                  <div className="action-icon">⚙️</div>
-                  <div className="action-content">
-                    <h4>View Services</h4>
-                    <p>Check available church services</p>
-                  </div>
-                </button>
-                
-                <button 
-                  onClick={() => setCurrentPage('appointment-history')}
-                  className="action-card warning"
-                >
-                  <div className="action-icon">📊</div>
-                  <div className="action-content">
-                    <h4>Appointment History</h4>
-                    <p>View archived appointments</p>
-                  </div>
-                </button>
-              </div>
-            </div> */}
-
             <div className="dashboard-grid">
-              {/* Today's Appointments */}
               <div className="dashboard-card">
                 <div className="card-header">
                   <h3 className="card-title">Today's Schedule</h3>
@@ -333,7 +251,6 @@ const StaffDashboard = ({ user, onLogout }) => {
                 </div>
               </div>
 
-              {/* Recent Activity */}
               <div className="dashboard-card">
                 <div className="card-header">
                   <h3 className="card-title">Recent Activity</h3>
